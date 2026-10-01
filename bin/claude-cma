@@ -1,9 +1,0 @@
-#!/bin/sh
-# CMA_MANAGED_SHIM: one compiled executable supervises the official Claude.
-set -eu
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
-if [ ! -f "$root/dist/cma" ] || [ ! -x "$root/dist/cma" ]; then
-    printf '%s\n' 'claude-cma: compiled Linux binary is missing. Run make build in the repository root, or make install explicitly in a terminal.' >&2
-    exit 2
-fi
-exec "$root/dist/cma" launch -- "$@"

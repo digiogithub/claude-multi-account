@@ -1,3 +1,4 @@
 dist/
 .claude/accounts.local.json
 .pando/
+bin/
