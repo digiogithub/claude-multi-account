@@ -1,0 +1,16 @@
+---
+created_at: 2026-10-01T13:14:34.347742637Z
+updated_at: 2026-10-01T13:14:34.347742637Z
+tags:
+    - implementation
+    - go
+    - verification
+---
+# Go Linux implementación verificada
+Completada migración aprobada [[claude-multi-account/plans/go-linux-migration]], sustituye runtime de [[claude-multi-account/implementation/v1-verification]]. Cuatro subagentes implementaron core, CLI, launcher/install y plugin/docs; quinto revisión independiente. Linux ONLY Go>=1.23 stdlib sin go.sum/dependencias; binario estático dist/cma CGO_ENABLED=0 GOOS=linux amd64 en entorno. Retirados cma/*.py, tests Python y pyproject.toml, conservados documentos históricos. cmd/cma y internal/core cli launcher install plugincheck, Makefile build/install/test/check y shims POSIX. Datos JSON v1 compatibles Secret Service/file, sin keychain/macOS. Skills manual-only preservados; bridge CMA_BINARY estable absoluto o repo dist/cma sin compilar/instalar hooks; marketplace fuente raíz, dist ignorado.
+
+Características: CRUD perfiles y token hidden via termios Linux/--token-stdin bounded explícito, secret-tool tokens stdin error redacted y file0600 opt-in; flock registro, strict schemas/duplicados, private dirs/symlink validation; project config/discovery; managed nonce session/handoff exact consent scopes; supervisor stdio/signals normal shell exit; auth conflicts settings cwd/ancestor/env and memory overlays; instalador copia binario actual estable digest marker shell opt-in alias-safe; normal administrative claude passthrough.
+
+Revisión independiente reprodujo reader sobreviviente SIGINT hidden-token que robaba próximo input; reemplazado lectura síncrona tty con VMIN0/VTIME1 y PTY regresión cancel/restoration. Verificó Go1.23.4 y Go1.26.6 suites/test race vet. Coordinador corrigió números JSON grandes en overlay settings antes float64 (UseNumber + trailing object rejection y truthy json.Number, regresión 9007199254740993). Datos allowedProfiles vacío vs ausente preservados por custom marshal.
+
+Final coordinador: go test -count=1 ./... OK; go test -race -count=1 ./... OK; go vet ./... OK; make build OK; sh -n bin/cma bin/claude-cma plugin/bin/cma OK (cada uno); claude plugin validate ./plugin y ./.claude-plugin/marketplace.json Validation passed; gofmt -l sin salida; git diff --check OK. git status solo nuevos archivos no commits/staging; no real credenciales/login ni instalación máquina o shell. dist/cma construido y listo NO instalado. Sigue pendiente auth/reanudación intercuentas real y comportamiento org recursos autorizados, estático marketplace no instalación real. Límite same UID filesystem races no sandbox; common histories modeA; claude.ai sync no disponible token env.

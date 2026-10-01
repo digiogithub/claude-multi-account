@@ -1,0 +1,29 @@
+{
+  "name": "claude-multi-account-local",
+  "owner": {"name": "Claude Multi Account contributors"},
+  "description": "Gestión local y explícita de perfiles para Claude Code en terminal.",
+  "plugins": [
+    {
+      "name": "accounts",
+      "source": "./",
+      "strict": false,
+      "version": "0.1.0",
+      "description": "Perfiles Linux con fuente Go completa; requiere make build explícito o CMA_BINARY estable.",
+      "author": {"name": "Claude Multi Account contributors"},
+      "skills": ["./plugin/skills"],
+      "hooks": {
+        "SessionStart": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "\"${CLAUDE_PLUGIN_ROOT}/plugin/bin/cma\" internal session-start",
+                "timeout": 10
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

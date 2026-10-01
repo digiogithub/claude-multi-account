@@ -1,0 +1,571 @@
+AgeKeys = ''
+AutoCompact = true
+ContextPaths = []
+Debug = false
+DebugLSP = false
+LSPActivateOn = ''
+LSPAutoActivate = false
+LSPAutoInstall = false
+LSPInstallTimeout = ''
+LSPRunner = ''
+LSPStartupTimeout = ''
+LogFile = ''
+WorkingDir = ''
+
+[AGUI]
+AgentPoolSize = 0
+AgentPoolTTL = ''
+Agents = []
+AllowedOrigins = []
+AutoApprove = false
+DisconnectGrace = ''
+Enabled = false
+FrontendTools = false
+Host = ''
+HumanInTheLoop = false
+MaxConcurrentRuns = 0
+Path = ''
+Persona = ''
+Port = 0
+RequireToken = false
+ShutdownGrace = ''
+Tools = []
+
+[Agents]
+[Agents.cli-assist]
+AutoCompact = false
+AutoCompactThreshold = 0.0
+ContextWindowOverride = 0
+MaxTokens = 0
+Model = 'copilot.gpt-6-luna'
+ReasoningEffort = ''
+ThinkingMode = ''
+
+[Agents.coder]
+AutoCompact = false
+AutoCompactThreshold = 0.0
+ContextWindowOverride = 0
+MaxTokens = 0
+Model = 'copilot.gpt-6.1-sol'
+ReasoningEffort = ''
+ThinkingMode = ''
+
+[Agents.context-enricher]
+AutoCompact = false
+AutoCompactThreshold = 0.0
+ContextWindowOverride = 0
+MaxTokens = 0
+Model = 'copilot.gpt-6-luna'
+ReasoningEffort = ''
+ThinkingMode = ''
+
+[Agents.persona-selector]
+AutoCompact = false
+AutoCompactThreshold = 0.0
+ContextWindowOverride = 0
+MaxTokens = 0
+Model = 'copilot.gpt-6-luna'
+ReasoningEffort = ''
+ThinkingMode = ''
+
+[Agents.summarizer]
+AutoCompact = false
+AutoCompactThreshold = 0.0
+ContextWindowOverride = 0
+MaxTokens = 0
+Model = 'copilot.gpt-6-luna'
+ReasoningEffort = ''
+ThinkingMode = ''
+
+[Agents.task]
+AutoCompact = false
+AutoCompactThreshold = 0.0
+ContextWindowOverride = 0
+MaxTokens = 0
+Model = 'copilot.gpt-6-luna'
+ReasoningEffort = ''
+ThinkingMode = ''
+
+[Agents.title]
+AutoCompact = false
+AutoCompactThreshold = 0.0
+ContextWindowOverride = 0
+MaxTokens = 0
+Model = 'copilot.gpt-6-luna'
+ReasoningEffort = ''
+ThinkingMode = ''
+
+[Bash]
+AllowedCommands = []
+BannedCommands = []
+OutputFilterDisabled = false
+OutputFilterPaths = []
+
+[Caveman]
+DefaultMode = 'lite'
+
+[Container]
+allow_env = []
+allow_mounts = []
+cpu_limit = ''
+embedded_cache_dir = ''
+embedded_gc_keep_n = 0
+extra_env = []
+extra_mounts = []
+image = ''
+mem_limit = ''
+network = 'none'
+no_new_privileges = false
+pids_limit = 0
+pull_policy = ''
+read_only = false
+runtime = 'host'
+socket = ''
+user = ''
+work_dir = ''
+
+[CronJobs]
+Enabled = false
+Jobs = []
+
+[Data]
+Directory = './.pando/data'
+
+[Design]
+DefaultKind = ''
+OutputDir = ''
+SystemDir = ''
+
+[Design.Critique]
+Enabled = false
+MaxRounds = 0
+Policy = ''
+Threshold = 0.0
+
+[Extensions]
+Disabled = []
+
+[Extensions.Memory]
+DryRun = false
+Enabled = false
+Mode = ''
+Origins = []
+Paths = []
+QueueSize = 0
+Scopes = []
+TimeoutMs = 0
+WrapSearch = false
+
+[Goal]
+AutoApprove = true
+DangerousPatterns = []
+MaxDuration = '1h'
+MaxIterations = 20
+StallIterations = 3
+
+[Image]
+AutoResize = false
+MaxBase64Bytes = 0
+MaxHeight = 0
+MaxWidth = 0
+Quality = 0
+UseFilesAPI = false
+
+[InternalTools]
+AskUserQuestionDisabled = false
+BraveAPIKey = ''
+BraveSearchEnabled = true
+BrowserEnabled = true
+BrowserExecutable = ''
+BrowserHeadless = true
+BrowserMaxSessions = 3
+BrowserTimeout = 30
+BrowserType = 'chrome'
+BrowserUserDataDir = ''
+Context7Enabled = true
+DesktopActionTimeout = 10
+DesktopAllowPhysicalInput = true
+DesktopAllowedApps = []
+DesktopBackend = 'auto'
+DesktopDefaultDepth = 3
+DesktopDeniedApps = []
+DesktopEnabled = false
+DesktopMaxNodes = 500
+DesktopScreenshotScale = 1.0
+DesktopSnapshotTTL = 60
+ExaAPIKey = ''
+ExaSearchEnabled = false
+FetchEnabled = true
+FetchMaxSizeMB = 10
+GoogleAPIKey = ''
+GoogleSearchEnabled = true
+GoogleSearchEngineID = ''
+PerplexityAPIKey = ''
+PerplexitySearchEnabled = true
+SetupModelSwitchEnabled = false
+SetupModelSwitchMaxPerRun = 0
+SourcegraphEnabled = false
+SourcegraphToken = ''
+
+[LLMCache]
+Enabled = true
+
+[Lua]
+Enabled = false
+HotReload = false
+LogFilteredData = false
+ScriptPath = ''
+StrictMode = false
+Timeout = ''
+
+[MCPGateway]
+DecayDays = 30
+Enabled = true
+FavoriteThreshold = 3
+FavoriteWindowDays = 7
+MaxFavorites = 10
+
+[MCPServer]
+Enabled = false
+HttpAllowedOrigins = []
+HttpEnabled = false
+HttpHost = ''
+HttpPort = 0
+HttpToken = ''
+StdioEnabled = false
+
+[MCPServer.Design]
+Enabled = false
+
+[MCPServer.FileTools]
+AllowWrite = false
+Enabled = false
+
+[MCPServer.GatewayExpose]
+Enabled = false
+
+[MCPServer.SelfImprovement]
+Enabled = false
+
+[MCPServer.SystemExecution]
+AllowedCommands = []
+Enabled = false
+
+[MCPServers]
+
+[Mesnada]
+Enabled = true
+
+[Mesnada.ACP]
+AutoPermission = true
+DefaultAgent = 'claude'
+Enabled = true
+
+[Mesnada.ACP.Server]
+Enabled = false
+Host = '0.0.0.0'
+MaxSessions = 100
+Port = 8766
+RequireAuth = false
+SessionTimeout = '30m'
+Transports = ['http']
+
+[Mesnada.Delegation]
+AcceptDelegations = false
+AllowExternalWarmTargets = false
+AutoStartWarmInstance = true
+BlackboardMaxEntriesPerSwarm = 200
+BlackboardTTL = '168h'
+BreakerDisabled = false
+ConclusionGateDisabled = false
+Enabled = true
+EventLogDisabled = false
+EventLogMaxEntries = 5000
+InjectIntoLiveLoop = true
+MaxConcurrent = 8
+MaxDepth = 3
+MaxResurrections = 4
+MaxTaskRetries = 3
+RateLimitCooldown = '5m'
+RecentSuccessWindow = '2m'
+ResurrectIdleLoop = true
+ResurrectionTimeout = '10m'
+ReuseWarmInstances = true
+SynthesizeFallback = true
+WarmInstanceIdleTimeout = '0'
+WarmQueueDepth = 0
+
+[Mesnada.Orchestrator]
+ClaimTTL = '2m'
+DefaultEngine = 'pando'
+DefaultMCPConfig = ''
+DefaultModel = 'sonnet'
+DispatchInterval = '10s'
+EnginesDir = ''
+LogDir = './.pando/mesnada/logs'
+MaxParallel = 5
+MaxPerEngine = 0
+PersonaPath = './.pando/mesnada/personas'
+StorePath = './.pando/mesnada/tasks.json'
+
+[Mesnada.Server]
+Host = ''
+Port = 5005
+
+[Mesnada.TUI]
+Enabled = true
+WebUI = false
+
+[ModelAutoMode]
+DefaultAuto = true
+Enabled = true
+HistoryPrompts = 0
+MinConfidence = 0.0
+Selected = true
+Threshold = 0.6
+TimeoutMs = 0
+
+[ModelAutoMode.Router]
+KeepAlive = '30m'
+Model = 'tev1:0.8b'
+Provider = 'ollama'
+
+[[ModelAutoMode.Routes]]
+Description = 'Analiza la siguiente funcionalidad, genera un documento en kb y planifica el desarrollo'
+Fallbacks = ['copilot.claude-opus-5.5']
+ID = 'Analiza'
+Model = 'copilot.gpt-6.1-sol'
+
+[[ModelAutoMode.Routes]]
+Description = 'Traduce al inglés la documentación que te indico'
+Fallbacks = ['openrouter.~deepseek/deepseek-flash-latest']
+ID = 'Traduce'
+Model = 'copilot.gpt-6-luna'
+
+[[ModelAutoMode.Routes]]
+Description = 'Prueba o usa las tools de browser para acceder a esta información'
+Fallbacks = ['copilot.claude-sonnet-5.5']
+ID = 'Prueba en el navegador'
+Model = 'copilot.gpt-6-luna'
+
+[[ModelAutoMode.Routes]]
+Description = 'Desarrolla o programa las tareas indicadas'
+Fallbacks = ['copilot.claude-sonnet-5.5']
+ID = 'Programa'
+Model = 'copilot.gpt-6.1-sol'
+
+[[ModelAutoMode.Routes]]
+Description = 'Explícame porqué sucede esto'
+Fallbacks = ['copilot.claude-sonnet-5.5']
+ID = 'Explica'
+Model = 'copilot.gpt-6-luna'
+
+[ModelsDev]
+Enabled = true
+
+[OpenLit]
+Enabled = false
+Endpoint = ''
+Insecure = false
+ServiceName = ''
+
+[Permissions]
+AutoApproveTools = true
+
+[Persona]
+Active = 'software-engineer'
+
+[PersonaAutoSelect]
+Enabled = false
+PersonaPath = ''
+
+[Ponytail]
+DefaultMode = ''
+
+[Projects]
+AutoRestore = false
+Enabled = true
+MaxProjects = 20
+
+[Remembrances]
+AutoIndexSessions = false
+ChunkOverlap = 100
+ChunkSize = 800
+CodeEmbeddingAPIKey = ''
+CodeEmbeddingBaseURL = ''
+CodeEmbeddingModel = 'hf.co/limcheekin/CodeRankEmbed-GGUF:Q4_K_M'
+CodeEmbeddingProvider = 'ollama'
+ContextEnrichmentAgentLoopEnabled = true
+ContextEnrichmentAgentLoopEveryMessage = false
+ContextEnrichmentAgentLoopFallbackDisabled = false
+ContextEnrichmentAgentLoopHiddenInChat = false
+ContextEnrichmentAgentLoopMaxChars = 6000
+ContextEnrichmentAgentLoopSilent = false
+ContextEnrichmentAgentLoopTimeoutSeconds = 60
+ContextEnrichmentCodeMaxChars = 0
+ContextEnrichmentCodeProject = 'www_claude-multi-account'
+ContextEnrichmentCodeResults = 5
+ContextEnrichmentEnabled = true
+ContextEnrichmentEventsLastDays = 5
+ContextEnrichmentEventsMaxChars = 0
+ContextEnrichmentEventsResults = 4
+ContextEnrichmentEventsSubject = 'figma'
+ContextEnrichmentKBMaxChars = 0
+ContextEnrichmentKBResults = 3
+ContextEnrichmentMinScore = 0.45
+ContextEnrichmentPlannerFallbackToCoder = false
+ContextEnrichmentTotalMaxChars = 0
+ContextEnrichmentUseAgentPlanner = false
+DocumentEmbeddingAPIKey = ''
+DocumentEmbeddingBaseURL = ''
+DocumentEmbeddingModel = 'nomic-embed-text'
+DocumentEmbeddingProvider = 'ollama'
+Enabled = true
+IndexWorkers = 4
+KBAutoImport = true
+KBConvertDocuments = true
+KBConvertExtensions = []
+KBPath = '/www/claude-multi-account/docs'
+KBWatch = true
+KBWikiLinks = true
+MemoryContextEnrichmentEnabled = true
+MemoryContextMaxChars = 2000
+MemoryContextMaxItems = 10
+MemoryDefaultTTLDays = 180
+MemoryEnabled = true
+MemoryGCInterval = '1h'
+MemoryPinnedScopes = []
+UseSameModel = false
+
+[Sandbox]
+
+[Server]
+Enabled = true
+Host = 'localhost'
+Port = 9999
+RequireAuth = false
+
+[Server.BasicAuth]
+Enabled = false
+Users = []
+
+[Shell]
+Args = []
+Path = ''
+
+[Skills]
+Enabled = true
+Paths = ['./agents/skills']
+
+[SkillsCatalog]
+AutoUpdate = false
+BaseURL = ''
+DefaultScope = 'global'
+Enabled = true
+
+[Snapshots]
+AutoCleanupDays = 30
+Enabled = false
+ExcludePatterns = []
+MaxFileSize = '10MB'
+MaxSnapshots = 50
+
+[TUI]
+ChatSidebar = ''
+ChatSidebarMinWidth = 0
+NerdFonts = true
+ShowHiddenFiles = true
+Theme = 'pando-nobg'
+
+[TokenOptimization]
+BuildCodeGraph = false
+ReadDedupDisabled = false
+ReadModeDefault = ''
+ReadModeLearning = false
+RelatedFilesHint = false
+SavingsLedgerDisabled = false
+
+[ToolDiscovery]
+DeferredSources = []
+Enabled = true
+MaxDirectTools = 64
+Mode = 'auto'
+NonDeferredTools = []
+SearchLimit = 8
+
+[acp]
+auto_permission = false
+enabled = false
+idle_timeout = ''
+log_level = ''
+max_sessions = 0
+
+[cliAssist]
+Model = ''
+Timeout = 0
+
+[evaluator]
+alphaWeight = 0.8
+async = true
+backfillJudge = false
+backfillLimit = 50
+betaWeight = 0.2
+correctionsPatterns = ["(?i)\\bthat'?s (not right|wrong|incorrect)\\b", "(?i)\\b(you'?re|this is|it'?s) (wrong|incorrect)\\b", "(?i)\\bthat'?s not (what|how|it|correct)\\b", '(?i)\bnot what i (asked|wanted|meant|said)\b', "(?i)\\bthat (didn'?t|doesn'?t|did not|does not) work\\b", '(?i)\byou (missed|forgot|broke|misunderstood)\b', '(?i)\b(undo|revert) (that|this|it|the last)\b', '(?i)^\s*(undo|revert)\b', '(?i)\bstill (failing|broken|not working|wrong|fails|the same)\b', "(?i)\\b(don'?t|do not) do that\\b", "(?i)\\bi said (don'?t|not to|do not)\\b", '(?i)\bstop doing\b', '(?i)\bfix that\b', '(?i)\bmistake\b', '(?i)\beso no es lo que\b', '(?i)\bno era eso\b', '(?i)\beso no era\b', '(?i)\bno es (lo que|correcto)\b', '(?i)\b(está|esta) (mal|incorrecto)\b', '(?i)\bte equivocaste\b', '(?i)\basí no\b', '(?i)\bno lo hagas\b', '(?i)\bdeshaz(lo)?\b', '(?i)\brevierte\b', '(?i)\bsigue (fallando|roto|sin funcionar)\b', '(?i)\bsigue (igual|mal)\b', '(?i)\barréglalo\b', '(?i)\bte (olvidaste|dejaste)\b']
+enabled = true
+explorationC = 1.41
+idleTimeout = '30m'
+includeSubagents = false
+judgePromptTemplate = ''
+maxSkills = 100
+maxTokensBaseline = 50
+minSessionsForUCB = 5
+model = 'copilot.gpt-6-luna'
+provider = 'copilot'
+
+[evaluator.contextTrimmer]
+enabled = false
+minConfidence = 0.7
+
+[evaluator.judge]
+dailyCalls = 20
+dailyTokens = 200000
+highReward = 0.8
+lowReward = 0.3
+maxTranscriptTokens = 6000
+minTurns = 4
+
+[[evaluator.taskPatterns]]
+pattern = 'fix|bug|error|crash|exception|failing|panic|traceback'
+taskType = 'debug'
+
+[[evaluator.taskPatterns]]
+pattern = 'refactor|rename|reorganize|clean\s+up|extract|move'
+taskType = 'refactor'
+
+[[evaluator.taskPatterns]]
+pattern = 'explain|how\s+does|what\s+is|describe|understand|document'
+taskType = 'explain'
+
+[[evaluator.taskPatterns]]
+pattern = 'test|spec|coverage|assert|mock'
+taskType = 'test'
+
+[[evaluator.taskPatterns]]
+pattern = 'implement|create|add\s+feature|build'
+taskType = 'code'
+
+[[evaluator.taskPatterns]]
+pattern = 'find|search|where\s+is|locate|grep\s+for'
+taskType = 'search'
+
+[evaluator.templates]
+enabled = true
+
+[evaluator.weights]
+cancels = 0.05
+endState = 0.1
+repetition = 0.05
+success = 0.8
+tokens = 0.2
+toolErrors = 0.1
+turns = 0.05

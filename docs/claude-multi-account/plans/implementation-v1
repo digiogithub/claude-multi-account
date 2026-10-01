@@ -1,0 +1,46 @@
+---
+created_at: 2026-10-01T09:33:55.424655802Z
+updated_at: 2026-10-01T09:33:55.424655802Z
+tags:
+    - plan
+    - architecture
+    - implementation
+---
+# Plan de implementación v1 — Claude Multi Account
+
+Estado: aprobado por el usuario para implementar. Base: [[claude-multi-account/analysis/mode-a-functional-proposal]].
+
+## Objetivo
+Plugin accounts + gestor local cma + wrapper opt-in que mantiene comando claude, perfiles reutilizables por usuario, asignación .claude/accounts.local.json por proyecto y cambio temporal/persistente mediante salida normal y reanudación con ID exacto. Modo A exclusivamente: CLAUDE_CODE_OAUTH_TOKEN, mismo CLAUDE_CONFIG_DIR, sin intercambiar credenciales de Claude ni implementar OAuth privado. No instalar en máquina del usuario ni modificar shell/credenciales durante desarrollo. No commits.
+
+## Tecnología y límites
+Python >=3.10, biblioteca estándar, tests unittest, launcher shell mínimo. Linux/WSL y macOS para terminal local. Secrets mediante secret-tool (Linux)/security (macOS); almacenamiento archivo 0600 solo opt-in explícito para sistemas sin llavero. Tokens importados vía getpass o stdin explícito, nunca argumentos/chat/JSON de resultados. setup-token oficial se ejecuta exteriormente; org/email metadatos declarados, no verificados a partir del token. No prometer descubrimiento de organizaciones, rotación automática de cuotas, sincronización claude.ai ni aislamiento completo. Integration VSCode/Desktop/background fuera alcance v1.
+
+## Ficheros y propiedad de subagentes
+Core: cma/core.py, cma/cli.py, cma/__init__.py, tests/test_core.py, tests/test_cli.py. Launcher/install: cma/launcher.py, cma/install.py, bin/cma, bin/claude-cma, tests/test_launcher.py, tests/test_install.py, pyproject.toml. Plugin/docs: plugin/**, .claude-plugin/marketplace.json, README.md, docs/usage.md, docs/security.md, docs/architecture.md, tests/test_plugin.py, .gitignore, AGENTS.md. Coordinador integra y revisa; no pisar archivos ajenos.
+
+## Contrato Python compartido
+core.CMAError(Exception); core.config_home() -> Path (CMA_CONFIG_HOME override else XDG_CONFIG_HOME/claude-multi-account); core.state_home() -> Path (CMA_STATE_HOME override else XDG_STATE_HOME/claude-multi-account); core.load_registry() -> dict {version:1,profiles:{id:metadata}}; core.get_profile(profile_id)->dict (incluye id); core.get_token(profile_id)->str; core.project_root(cwd:Path)->Path; core.load_project(cwd:Path)->tuple[Path,dict] (sin config devuelve defaults profile:null,memory:{mode:shared},switching:{confirmContextTransfer:true}); core.save_project(root:Path, config:dict)->None atómico; core.validate_profile_id(str)->str; core.check_allowed(config:dict,profile_id:str)->None.
+launcher.run_claude(args:list[str],profile_override:str|None=None)->int; install.install(target:Path,integrate_shell:bool=False)->dict; install.uninstall(target:Path)->dict. Entry cma.cli.main(argv=None)->int dispatch imports lazy launcher/install. Ejecutar python -m cma.cli. launcher resolver CMA_CLAUDE_BINARY ruta absoluta o descubrimiento PATH evitando wrappers. bin/cma ejecuta main con sys.path relativo al paquete; bin/claude-cma ejecuta run_claude argv sin parsear argumentos de Claude. pyproject scripts cma=cma.cli:main y claude-cma=cma.launcher:main.
+
+## CLI acordada
+cma profiles list [--json]; profiles add ID --label LABEL --email EMAIL --organization NAME --organization-id UUID [--expires-at ISO] [--backend auto|secret-service|keychain|file] [--token-stdin]; profiles renew ID [--token-stdin]; profiles remove ID; project init [--profile ID]; project use ID; project memory shared|per-profile; status [--json]; switch ID [--scope session|project] [--confirm-context-transfer]; launch [--profile ID] -- CLAUDE_ARGS; install [--target PATH] [--shell]; uninstall [--target PATH]. Profile fields id,label,email,organization,organization_id,secret_backend,secret_ref,expires_at,verification:'unverified'. Default add hidden getpass. list/status redacted no token. Root commands switch/init/use no secret input from model.
+
+## Wrapper y cambio
+Wrapper escoge configuración raíz git (desde subdirs); fuera git nearest ancestor containing config, sin atravesar home/root arbitrariamente. Worktrees propios por defecto; no herencia implícita. Config no se ejecuta. Perfil ausente en TTY selector antes de Claude y opción continuar login habitual sin gestionar; no configuración no-interactivo error explícito. Exit/error no fallback a otra cuenta.
+Wrapper supervisa subprocess, mantiene stdio señales y exit code. Genera nonce/launch ID aleatorio y carpeta state_home()/runs/<launch_id> 0700. Env CMA_LAUNCH_ID, CMA_ACTIVE_PROFILE, CMA_PROJECT_ROOT, CMA_MANAGED=1, CMA_RUN_DIR (no secretos). run.json allí registra profile/project y token-free session info; plugin SessionStart invoca cma internal session-start leyendo JSON stdin {session_id,cwd,...}, guarda session.json en run dir; validar directorio e IDs. switch escribe switch.json {profile,scope,session_id,confirmed:true,project_root}, valida perfil/allow/context consentimiento y sesión managed registrada. Scope project persiste configuración; scope session no. Wrapper tras salida normal y solicitud válida relanza token destino con --resume SESSION_ID exacto y conserva opciones de Claude sin duplicar resume/continue/session-id. No matar desde herramienta ni TUI anidada; si salida error no reinicio automático. Peticiones por run, no globales; otras sesiones no cambian. Cambios de cwd requieren detección/aviso, no auth caliente.
+
+## Autenticación/seguridad
+Antes launch detectar ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, apiKeyHelper, proveedores cloud/gateway, custom endpoints y credenciales/routing env en fuentes settings relevantes; fallar conflicto sin borrar política. No inyectar CLAUDE_CODE_ORGANIZATION_UUID como selector; token manda. No export global ni tokens args/settings. No acceso lectura a .credentials.json. profiles file atomic, dir 0700, payload modes 0600. .claude/accounts.local.json gitignored local vía .git/info/exclude o advertencia, sin cambios globales Git config. Guardar consentimiento en estado local y requerir confirmación antes resume entre perfiles. Limitar requests validando launch+session+proyecto. Expiración local conocida exige renovar; unknown expiry visible.
+
+## Memoria
+Shared conserva estado existente. per-profile autoMemoryDirectory mediante --settings temporal 0600 ligado a run, ruta estable fuera repo por identidad proyecto+perfil; no modifica settings existentes. No enlaces destructivos ni migración automática. Cambiar política no copia memoria; documentar history/CLAUDE.md/code siempre comunes en modo A. Respeta settings memory/managed existentes y alerta sobre conflicto.
+
+## Plugin
+Nombre accounts; skills status/list/use/project/add/memory manual-only disable-model-invocation:true. Skills llaman cma con argumentos validados, list/status dinámicos redacted, no entrada token ni instrucciones para imprimir secrets. use usa CLI switch, pide scope/consent, indica /exit normal; CLI fallback con cuota agotada. Hook SessionStart command script/cma internal session-start; aviso si no wrapper o mismatch. Bin bridge propio fuera nombre claude para no sombra bin oficial. instalador copia paquete estable a target (~/.local/share/claude-multi-account por defecto), instala shims usuario; integración shell explícita opt-in función claude sin reemplazar binary y desinstalable, conserva rc existentes.
+
+## Pruebas y aceptación
+Unittest fake claude registra entorno sanitizado/args, fake secret backend no red; tempfile HOME/config/state; no uso credenciales reales. Probar perfil distinto mismo email; import/renew/remove sin fugas; discovery root/subdirs/worktree; config malformed/unknown/disallowed; selector vs headless; token precedence conflictos; concurrency per run; handoff exact session ID scope temporal/persistente/consent; invalid/tampered request; expiry; memory paths overlay; signal/exit; installer idempotent/removal/preserva rc; plugin manifest + manual skills sin secrets. python -m unittest discover -s tests -v; compileall; bash -n scripts; claude plugin validate ./plugin si disponible (sin login/red). Evidencia resume real intercuentas y recursos org no se puede validar sin autorización/login usuario; documentar prueba manual y no afirmar verificado.
+
+## Entregables
+Código completo local, marketplace y plugin instalables, documentación española de uso/instalación/desinstalación/seguridad/limitaciones, AGENTS.md comandos de desarrollo, resultados tests y pendientes reales en KB [[claude-multi-account/plans/implementation-v1]].

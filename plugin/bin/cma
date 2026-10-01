@@ -1,0 +1,25 @@
+#!/bin/sh
+# Exec the compiled Linux runtime; never build/install or consume hook stdin.
+set -eu
+bridge=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)/cma
+if [ "${CMA_BINARY+x}" = x ]; then
+    case "$CMA_BINARY" in
+        /*) ;;
+        *) printf '%s\n' 'accounts: CMA_BINARY must be an absolute stable cma executable path.' >&2; exit 2 ;;
+    esac
+    if [ ! -f "$CMA_BINARY" ] || [ ! -x "$CMA_BINARY" ]; then
+        printf '%s\n' 'accounts: CMA_BINARY is not an executable file.' >&2
+        exit 2
+    fi
+    if [ "$CMA_BINARY" -ef "$bridge" ]; then
+        printf '%s\n' 'accounts: CMA_BINARY must not point to the plugin bridge.' >&2
+        exit 2
+    fi
+    exec "$CMA_BINARY" "$@"
+fi
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd -P)
+if [ ! -f "$root/dist/cma" ] || [ ! -x "$root/dist/cma" ]; then
+    printf '%s\n' 'accounts: compiled Linux runtime is missing. Run make build in the full plugin repository root, or make install from a full checkout and set CMA_BINARY to the absolute stable installed cma path. Plugin installation does not build or install the CLI.' >&2
+    exit 2
+fi
+exec "$root/dist/cma" "$@"

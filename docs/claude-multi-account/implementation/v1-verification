@@ -1,0 +1,18 @@
+---
+created_at: 2026-10-01T09:49:00.747586021Z
+updated_at: 2026-10-01T09:49:00.747586021Z
+tags:
+    - implementation
+    - verification
+    - security
+---
+# Implementación v1 y verificación
+Completado contra [[claude-multi-account/plans/implementation-v1]], basado en [[claude-multi-account/analysis/mode-a-functional-proposal]]. Tres subagentes implementaron core/CLI, launcher/installer y plugin/docs; cuarto realizó revisión independiente. Coordinador integró y cerró incidencias.
+
+Entregables: paquete Python stdlib cma/{core,cli,launcher,install}.py; bin/cma y bin/claude-cma; perfiles por usuario y backends Secret Service/macOS Keychain + archivo 0600 opt-in; .claude/accounts.local.json; selección previa y persistencia opcional; supervisor con requests run/session aislados, consentimiento y --resume ID exacto después /exit; scopes session/project; memoria shared/per-profile mediante overlay privado; instalador estable e integración Bash/Zsh explícita + uninstall; plugin accounts seis skills manual-only, hook SessionStart y bridge canónico; marketplace raíz completa source ./ strict false skills/hook explícitos; README, docs/usage.md/security.md/architecture.md y AGENTS.md.
+
+Decisiones ajustadas: allowedProfiles campo top-level en configuración (en vez switching.allow del boceto); proyecto gitignore local mediante advertencia explícita sin tocar git global. Wrapper pasa comandos administrativos auth/setup-token/plugin/update/install/doctor y help/version directamente al binario oficial sin recuperar tokens, para no romper integración shell. Print no selector incluso TTY; bare/bg/cloud rechazados fuera contrato. Metadata email/org siempre unverified; no usar UUID de organización como selector. No login, credenciales reales ni .credentials.json leídos; no instalación máquina ni shell usuario; no commits.
+
+Revisión hallazgos y correcciones con tests: settings de subdirectorio podían reemplazar auth; ahora inspeccionados. Añadidas variables proveedor/host/token alternativas a detección conflictos. Ancestor symlinks de estado rechazados antes acceso; bounds comando interactivo Keychain 4096 bytes; eliminación perfil guarda registro antes retirar secreto. Resume eliminaba opciones solo antes prompt; ahora elimina resume/continue/session-id/fork-session también después, consume valores named resume y preserva delimitador -- y opciones con valores. Definición función shell usa function keyword para no fallo sintaxis con alias Claude existente; alias se conserva y documentación explica precedencia/manual elección. Selección sin ID de /accounts:use lista y pregunta explícitamente.
+
+Verificación final coordinador: python3 -W error::ResourceWarning -m unittest discover -s tests -v -> 79 tests, OK; python3 -m compileall -q cma tests -> OK; sh -n plugin/bin/cma -> OK; claude plugin validate ./plugin -> Validation passed; claude plugin validate ./.claude-plugin/marketplace.json -> Validation passed; git diff --check -> OK; status solo archivos nuevos sin staging/commit. No linter/typechecker obligatorio disponible. Pruebas usan temporales, Claude/backend falsos, sin red/login. Native keychain y resume real entre cuentas no verificados, necesitan prueba manual autorizada con contexto no sensible. Otros límites: skills slash dependen modelo/cuota, CLI fallback; historial/CLAUDE.md/config common modo A no full isolation; claude.ai sync y recursos org limitados; Desktop/VSCode/background fuera alcance; mismas credenciales OS no sandbox, path checks no protección race absoluta, fallo backend cleanup puede dejar secreto huérfano. Marketplace validado estáticamente y packaging sintético, no instalado realmente durante desarrollo.
