@@ -1,14 +1,15 @@
 ---
 name: list
-description: Listar perfiles locales sin mostrar secretos.
+description: List local profiles without showing secrets.
 disable-model-invocation: true
 allowed-tools: Bash
 ---
 
-Perfiles locales redactados:
+Redacted local profiles:
 !`"${CLAUDE_SKILL_DIR}/../../bin/cma" profiles list --json`
 
-Presenta los IDs y metadatos del resultado; conserva la indicación unverified y
-caducidad desconocida cuando corresponda. No prometas descubrir organizaciones
-ni verificar identidad. CLI equivalente: `cma profiles list --json`.
-No leas tokens, variables de autenticación ni `.credentials.json`.
+Present the IDs and metadata from the result; the `secret_backend` field shows the
+mode (`config-dir` or a token backend); preserve the unverified indicator and
+unknown expiry where applicable. Do not promise to discover organizations
+or verify identity. CLI equivalent: `cma profiles list --json`.
+Do not read tokens, authentication variables, or `.credentials.json`.

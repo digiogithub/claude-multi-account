@@ -207,7 +207,7 @@ func Status(cwd string) (map[string]any, error) {
 		return nil, e
 	}
 	managed := os.Getenv("CMA_MANAGED") == "1"
-	result := map[string]any{"project_root": root, "project": p, "managed": managed, "active_profile": nil, "session_id": nil, "profile": nil, "expiry_status": "unknown"}
+	result := map[string]any{"project_root": root, "project": p, "managed": managed, "active_profile": nil, "session_id": nil, "profile": nil, "expiry_status": "unknown", "mode": nil, "config_dir": nil, "login": nil}
 	id := ""
 	if p.Profile != nil {
 		id = *p.Profile
@@ -236,6 +236,15 @@ func Status(cwd string) (map[string]any, error) {
 			return nil, e
 		}
 		result["profile"] = profile
+		if IsConfigDir(profile) {
+			dir, e := ProfileDir(id)
+			if e != nil {
+				return nil, e
+			}
+			result["mode"], result["config_dir"], result["login"] = ConfigDirBackend, dir, LoginState(id)
+		} else {
+			result["mode"] = "token"
+		}
 		t, e := expiry(profile.ExpiresAt)
 		if e != nil {
 			return nil, e

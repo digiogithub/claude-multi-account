@@ -292,7 +292,8 @@ func Install(target string, shell bool) (map[string]any, error) {
 		}
 		if _, err := os.Lstat(path); err == nil {
 			hash, managed := old.Files[name]
-			if !managed || digest(data) != hash {
+			// An untracked file identical to the payload is adopted: nothing is lost.
+			if digest(data) != digest(payloads[name]) && (!managed || digest(data) != hash) {
 				return nil, fmt.Errorf("Refusing to overwrite unmanaged or modified file: %s", name)
 			}
 		}

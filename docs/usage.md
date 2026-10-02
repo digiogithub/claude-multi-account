@@ -1,134 +1,287 @@
-# Uso de Claude Multi Account (v1)
+# Using Claude Multi Account (v1)
 
-## Requisitos y alcance
+## Requirements and scope
 
-Terminal local SOLO Linux (WSL con entorno Linux); Go >= 1.23 para compilar;
-Claude Code oficial instalado. Ejecución con un único binario, sin runtime adicional.
-No integración con VSCode, Desktop ni procesos background. Perfiles locales
-reutilizables por usuario; no sincronización de cuentas/estado con claude.ai.
-No descubre organizaciones ni comprueba que email/organización coincidan con el
-token: siempre `verification: unverified`. No usar esta herramienta para eludir
-políticas de la organización.
+Local terminal ONLY on Linux (WSL with a Linux environment); Go >= 1.23 to compile;
+official Claude Code installed. Runs as a single binary, with no additional runtime.
+No integration with VSCode, Desktop, or background processes. Local profiles
+reusable by the user; no synchronization of accounts/state with claude.ai.
+It does not discover organizations or check that email/organization matches the
+token: always `verification: unverified`. Do not use this tool to bypass
+organization policies.
 
-### Compatibilidad de datos existentes
+### Compatibility with existing data
 
-Se conserva el formato JSON version 1 de perfiles, configuración y protocolos
-run/session/switch de la implementación anterior en Python, sin migración masiva
-ni cambios de referencias a secretos. Solo se admiten perfiles `secret-service`
-y `file` en Linux. Los perfiles macOS/`keychain` existentes son **no soportados**:
-no se convierten ni se leen sus secretos. Para usarlos en Linux, importa un token
-nuevo mediante el flujo oficial en terminal y un perfil Linux; conserva los datos
-anteriores hasta decidir explícitamente cómo retirarlos.
+The version 1 JSON format for profiles, configuration, and run/session/switch protocols
+from the previous Python implementation is preserved, with no bulk migration
+or changes to secret references. Config-dir profiles are ordinary v1 records with
+`secret_backend: "config-dir"`; existing token records keep working untouched. Only
+Linux `secret-service`, `file`, and `config-dir` profiles are supported. Existing macOS/`keychain` profiles are **unsupported**:
+they are neither converted nor are their secrets read. To use them on Linux, import a new token
+through the official terminal flow and create a Linux profile; preserve the prior data
+until you explicitly decide how to remove it.
 
-## Instalación explícita
+## Explicit installation
 
-En terminal del usuario, desde la raíz del checkout completo en Linux:
+In the user's terminal, from the root of the full checkout on Linux:
 
 ```sh
 make build
 make install
 ```
 
-`make build` comprueba host Linux y `go env GOOS=linux`, y compila `dist/cma`.
-`make install` ejecuta `./dist/cma install` después de compilar explícitamente.
-El instalador copia el ejecutable actual a la ruta estable
-`~/.local/share/claude-multi-account/bin/cma` y crea el shim POSIX `claude-cma`.
-No copia otro runtime ni descarga Go/Claude; no hace login. Añade la ruta `bin`
-informada a PATH por decisión propia o usa sus ejecutables por ruta absoluta.
-Con destino propio, después de `make build`:
+`make build` checks the Linux host and `go env GOOS=linux`, then compiles `dist/cma`.
+`make install` runs `./dist/cma install` after explicit compilation.
+The installer copies the current executable to the stable path
+`~/.local/share/claude-multi-account/bin/cma` and creates the POSIX `claude-cma` shim.
+It does not copy another runtime or download Go/Claude; it does not log in. Add the reported `bin`
+path to PATH by your own choice, or use its executables by absolute path.
+For a custom destination, after `make build`:
 
 ```sh
 ./dist/cma install --target /ruta/absoluta/cma-runtime
 ```
 
-El mismo binario maneja CLI y supervisor con `cma launch -- ...`; `claude-cma`
-es solo un shim hacia esa operación. Los shims del checkout `./bin/cma` y
-`./bin/claude-cma` apuntan a `dist/cma`, no compilan automáticamente.
+The same binary handles the CLI and supervisor with `cma launch -- ...`; `claude-cma`
+is only a shim to that operation. The checkout shims `./bin/cma` and
+`./bin/claude-cma` point to `dist/cma`; they do not compile automatically.
 
-`claude-cma` es el wrapper opt-in sin reemplazar el binario oficial. La opción
-`cma install --shell` solicita integración explícita mediante función `claude`;
-no es necesaria para usar el wrapper. Revisa el informe del instalador y el
-shell compatible. El `claude` real sigue disponible y no se sustituye en disco.
-Si necesitas fijarlo, usa `CMA_CLAUDE_BINARY=/ruta/absoluta/claude` al lanzar.
-La integración conserva los aliases que ya tengas. Si existe un alias `claude`,
-puede tener prioridad sobre la función: revísalo con `type claude` y elimínalo
-manualmente si quieres usar el wrapper, o ejecuta `claude-cma` directamente.
+`claude-cma` is the opt-in wrapper that does not replace the official binary. The option
+`cma install --shell` requests explicit integration through a `claude` function;
+it is not required to use the wrapper. Review the installer report and
+supported shell. The real `claude` remains available and is not replaced on disk.
+If you need to pin it, set `CMA_CLAUDE_BINARY=/ruta/absoluta/claude` when launching.
+The integration preserves existing aliases. If a `claude` alias exists,
+it may take precedence over the function: check with `type claude` and remove it
+manually if you want to use the wrapper, or run `claude-cma` directly.
 
-Plugin (CLI oficial, no invoca login):
+Plugin (official CLI; does not invoke login):
 
 ```sh
 claude plugin marketplace add /ruta/absoluta/claude-multi-account
 claude plugin install accounts@claude-multi-account-local
 ```
 
-Desde Claude también existe `/plugin marketplace add /ruta/absoluta/claude-multi-account`
-y `/plugin install accounts@claude-multi-account-local` (interfaz del gestor).
-Instalar el plugin **no compila ni instala cma en PATH, no modifica shell y no
-importa credenciales**. Source `./` incluye la fuente Go y Makefile de la raíz
-completa. `dist/` está ignorado por Git y el binario compilado puede no viajar en
-el paquete. El bridge jamás compila desde SessionStart o un skill.
+From Claude, you can also use `/plugin marketplace add /ruta/absoluta/claude-multi-account`
+and `/plugin install accounts@claude-multi-account-local` (manager interface).
+Installing the plugin **does not compile or install cma on PATH, change the shell, or
+import credentials**. Source `./` includes the Go source and Makefile from the full
+root. `dist/` is ignored by Git and the compiled binary may not be included in
+the package. The bridge never compiles from SessionStart or a skill.
 
-Opción recomendada: compilar e instalar desde un checkout completo y, antes de
-lanzar Claude, definir en el terminal:
+Recommended option: compile and install from a full checkout and, before
+launching Claude, set this in the terminal:
 
 ```sh
 export CMA_BINARY="$HOME/.local/share/claude-multi-account/bin/cma"
 ```
 
-Debe ser ruta absoluta al ejecutable estable, no al bridge. También funciona
-con plugin local `claude --plugin-dir ./plugin` y una copia aislada de `plugin/`.
-No dependas de una ruta cache fija: las actualizaciones pueden cambiarla.
+It must be an absolute path to the stable executable, not the bridge. This also works
+with the local plugin `claude --plugin-dir ./plugin` and an isolated copy of `plugin/`.
+Do not rely on a fixed cache path: updates may change it.
 
-Alternativa: en la **raíz completa de la copia marketplace** (padre de `plugin/`),
-ejecutar `make build` explícitamente para crear `dist/cma` allí. Sin `CMA_BINARY`,
-el bridge solo usa ese binario. Para instalarlo estable después de compilar,
-el usuario puede ejecutar `./dist/cma install` en terminal; no ocurre al cargar.
+Alternative: at the **full root of the marketplace copy** (parent of `plugin/`),
+run `make build` explicitly to create `dist/cma` there. Without `CMA_BINARY`,
+the bridge uses only that binary. To install it stably after compiling,
+the user can run `./dist/cma install` in a terminal; this does not happen on load.
 
-Para probar desde el checkout, después de `make build`:
+To test from the checkout, after `make build`:
 
 ```sh
 ./bin/claude-cma --plugin-dir /ruta/absoluta/claude-multi-account/plugin
 ```
 
-Copiar solo `plugin/` no incluye runtime: requiere instalación estable y
-`CMA_BINARY`. No cambiar marketplace source a `./plugin` ni duplicar código Go
-bajo plugin. El source actual `./` mantiene una única fuente canónica.
+Copying only `plugin/` does not include the runtime: it requires a stable installation and
+`CMA_BINARY`. Do not change the marketplace source to `./plugin` or duplicate Go code
+under plugin. The current `./` source maintains a single canonical source.
 
-## Alta, renovación y eliminación
+## Profile modes
 
-Haz login/setup-token **oficial fuera del modelo** para la cuenta deseada:
+- **config-dir (default)**: each profile has its own Claude configuration directory,
+  `~/.claude-accounts/profiles/<id>` (override the base with `CMA_ACCOUNTS_HOME`), used
+  as `CLAUDE_CONFIG_DIR`. The user performs a normal full login; cma stores no token.
+- **token** (`--mode token`): the previous behaviour, with a `setup-token` token injected
+  as `CLAUDE_CODE_OAUTH_TOKEN`. Those tokens are inference-only: sessions start without
+  remote control and other features that need a full login. config-dir mode exists to
+  fix that.
+
+## How config-dir mode works, in practice
+
+This section describes the default mode from the user's point of view. The command
+reference follows in the next sections.
+
+**The idea.** Each profile is one Claude account with its own complete, normal login,
+exactly as if that account were the only one on the machine. Because the login is a
+full one, Claude starts with everything that account is entitled to, remote control
+included. Everything that is not the login itself is common to all your accounts, so
+changing account does not mean losing your setup or your conversations.
+
+**What each account keeps for itself**
+
+- Its login: which user and organization Claude runs as.
+- The small amount of account state that Claude itself records next to the login.
+
+**What all accounts have in common**
+
+- Conversations and history, so a conversation started under one account can be
+  resumed under another.
+- Project memory.
+- Skills, agents, commands, and plugins.
+- Settings, `CLAUDE.md`, and key bindings.
+
+A change made under one account applies to all of them: install a skill or change a
+setting while working as `trabajo`, and it is there when you work as `personal`.
+
+**First time**
+
+1. Create a profile per account: `cma profiles add trabajo --label "Trabajo"`.
+2. Log in to each one, once: `cma profiles login trabajo`. This is the ordinary Claude
+   login, done in your terminal.
+3. Optionally bring your current setup along: `cma shared import` copies your existing
+   skills, settings, history, and memory from `~/.claude` so every profile starts with
+   them. Your `~/.claude` is left exactly as it was.
+4. In each project, say which account it uses: `cma project init --profile trabajo`.
+
+**Day to day**
+
+- Start Claude in a project with `claude-cma` (or `claude`, if you enabled the shell
+  integration). It opens with the account assigned to that project. Nothing else to do.
+- Different projects can use different accounts, and you can have them open at the
+  same time in different terminals.
+- A project without an assigned account asks which one to use, and whether to remember
+  the answer.
+- `cma status` tells you which account the project uses and whether it is logged in.
+  `cma profiles list` shows all accounts.
+- If an account's login expires or you want to log in as someone else, run
+  `cma profiles login ID` again.
+
+**Changing account in the middle of a conversation**
+
+Ask for it with `/accounts:use personal session` (only this conversation) or
+`/accounts:use personal project` (also remember it for the project), confirm that the
+conversation may continue under the other account, and leave with `/exit`. Claude
+reopens the same conversation under the other account.
+
+**Good to know**
+
+- Starting official Claude directly, without the wrapper, still uses your usual
+  `~/.claude` login and setup. Profiles do not replace it.
+- Because history and memory are common, anything written in a conversation is visible
+  under every account. Keep that in mind before continuing work conversations under a
+  personal account, or the reverse. If you want memory kept apart per account in a
+  project, use `cma project memory per-profile`.
+- If you see a "shared link conflict" warning at launch, one account has its own copy
+  of something that should be common (for example its own settings). Claude still
+  starts; that one item is simply not shared for that account until you resolve it.
+  `cma shared sync` shows the situation for every account.
+- Removing a profile (`cma profiles remove ID`) forgets the account but keeps its login
+  on disk; add `--purge` to delete the login too. What is common to all accounts is
+  never deleted.
+- Existing token profiles keep working as before. To move one to the new mode, remove
+  it, add it again without `--mode token`, and log in.
+
+## Adding, logging in, and removing profiles (config-dir)
 
 ```sh
-claude setup-token
-cma profiles add trabajo --label "Trabajo" --email "usuario@example.com" --organization "Empresa" --organization-id "00000000-0000-0000-0000-000000000000"
+cma profiles add trabajo --label "Trabajo"
+cma profiles login trabajo
 ```
 
-Sustituye ID y metadatos, y pega el token solamente en el prompt oculto del
-terminal cma. Dos perfiles pueden compartir email: su ID local los distingue.
-El setup-token oficial puede mostrar material sensible: no compartas su salida
-ni lo pegues en el chat. La herramienta no lee `.credentials.json` ni implementa
-OAuth privado. El token manda; no hay selector separado de organización.
+Replace the ID and label. `add` registers the profile, creates its directory with the
+shared links, and prints the next step. It never prompts for a token. `login` is
+config-dir only: it runs official Claude `auth login` with that profile's
+`CLAUDE_CONFIG_DIR`. Run it in a terminal, **outside the model**. The tool does not read
+`.credentials.json` (login state is an `Lstat` check) or implement private OAuth. The
+login determines identity; there is no separate organization selector. Two profiles can
+share an email: their local IDs distinguish them.
 
-Opciones: `--expires-at ISO` declara caducidad local conocida; si falta, se
-muestra desconocida (no se infiere). `--backend auto|secret-service|file`.
-`auto` selecciona Secret Service; el archivo es opt-in, no fallback silencioso.
-Secret Service requiere `secret-tool` y sesión de llavero disponible en Linux.
-El backend file guarda texto claro 0600: evalúa antes sus riesgos.
+`--email`, `--organization`, and `--organization-id` are all optional declared,
+unverified metadata; supply them only if known. Omitted values are stored empty
+and displayed as unknown. There is no automatic network/identity discovery:
+no documented supported API for that discovery has been confirmed.
 
 ```sh
 cma profiles list
 cma profiles list --json
-cma profiles renew trabajo
 cma profiles remove trabajo
+cma profiles remove trabajo --purge
 ```
 
-Renovar usa también entrada oculta. Eliminar requiere petición explícita del
-usuario y deja las asignaciones que apunten a ese ID inválidas hasta corregirlas.
-`--token-stdin` en add/renew existe para automatización externa consciente; nunca
-lo uses mediante herramientas del modelo ni pongas tokens en argumentos,
-variables globales, chat, JSON, historial de comandos o logs.
+`list` text shows `mode:` and, for config-dir profiles, `login: present|absent`; `--json`
+stays the v1 record array (the mode is visible as `secret_backend`). `remove` deletes the
+registry entry and, without `--purge`, keeps and reports the profile directory; `--purge`
+also deletes the directory, credentials included. Removal requires an explicit user
+request and leaves assignments that point to that ID invalid until corrected. `renew`
+and the token options do not apply to config-dir profiles.
 
-## Proyecto y memoria
+## Shared directory
+
+`~/.claude-accounts/shared` (override with `CMA_SHARED_HOME`) holds the real files that
+every config-dir profile links to. Each entry below is an absolute symlink created inside
+the profile directory by `add`, re-checked at every launch and by `shared sync`:
+
+| Entry | Kind | When missing in shared |
+| --- | --- | --- |
+| `projects`, `skills`, `agents`, `commands`, `plugins`, `todos`, `plans`, `file-history` | directory | created 0700 |
+| `settings.json` | file | created as `{}` 0600 |
+| `CLAUDE.md`, `history.jsonl` | file | created empty 0600 |
+| `keybindings.json` | file | optional: linked only if it exists in shared |
+
+`.credentials.json` and `.claude.json` are never shared, linked, or opened. Links are
+never overwritten: an existing regular file or a link elsewhere is reported as a
+conflict (warning at launch) and left alone.
+
+```sh
+cma shared import [--from DIR]
+cma shared sync [--json]
+cma shared path
+```
+
+`import` copies from `~/.claude` (or `DIR`) into shared, non-destructively: only where
+the shared entry is missing or an empty placeholder. A top-level source entry that is a
+symlink is followed only when it resolves outside the accounts and shared homes and its
+kind matches; nested symlinks are recreated as symlinks, never followed. Directories are
+copied into a temporary sibling and renamed on success, so a failure leaves no partial
+entry. It refuses a source inside the accounts home, never modifies the source, and never
+copies `.credentials.json` or `.claude.json`. `sync` re-runs the link step for every
+config-dir profile and reports; `--json` prints the per-profile link reports as JSON. `path` prints the shared directory.
+
+## Token mode (opt-in)
+
+Run official setup-token **outside the model** for the desired account:
+
+```sh
+claude setup-token
+cma profiles add trabajo --label "Trabajo" --mode token
+```
+
+Replace the ID and label, and paste the token only into cma's hidden
+terminal prompt. The official setup-token command may display sensitive material: do not
+share its output or paste it into chat. The token determines identity. Limitation: these
+tokens are inference-only, so Claude starts without remote control and other
+login-dependent features.
+
+`--email`, `--organization`, and `--organization-id` are all optional declared,
+unverified metadata; supply them only if known. Omitted values are stored empty
+and displayed as unknown. There is no automatic network/token identity discovery:
+no documented supported API for that discovery has been confirmed.
+
+Token-mode options (valid only with `--mode token`; otherwise an argument error):
+`--expires-at ISO` declares a known local expiration; if omitted, it is
+shown as unknown (not inferred). `--backend auto|secret-service|file`.
+`auto` selects Secret Service; file storage is opt-in, not a silent fallback.
+Secret Service requires `secret-tool` and an available keychain session on Linux.
+The file backend stores plaintext with mode 0600: assess its risks first.
+
+```sh
+cma profiles renew trabajo
+```
+
+Renewal (token mode only) also uses hidden input; removing a token profile also deletes its
+secret. `--token-stdin` in add/renew is available for deliberate external automation; never use it through model tools or put tokens in arguments,
+global variables, chat, JSON, command history, or logs.
+
+## Project and memory
 
 ```sh
 cma project init --profile trabajo
@@ -137,7 +290,7 @@ cma project memory per-profile
 cma status --json
 ```
 
-Config local `.claude/accounts.local.json`, sin secretos:
+Local config `.claude/accounts.local.json`, without secrets:
 
 ```json
 {
@@ -149,102 +302,127 @@ Config local `.claude/accounts.local.json`, sin secretos:
 }
 ```
 
-`allowedProfiles` es opcional y limita destinos; no es una frontera contra un
-usuario local que pueda editar el archivo. El gestor intenta exclusión Git local
-o avisa: comprueba `git status` antes de compartir. No cambia Git config global.
-Desde subdirectorios usa raíz Git; cada worktree tiene asignación propia. Fuera
-Git busca ancestro cercano con configuración, sin atravesar home/root de forma
-arbitraria. Configuración inválida, perfil desconocido/expirado o no permitido:
-error explícito, sin cambiar a otra cuenta.
+`allowedProfiles` is optional and limits destinations; it is not a boundary against a
+local user who can edit the file. The manager attempts a local Git exclusion
+or warns: check `git status` before sharing. It does not change global Git config.
+From subdirectories it uses the Git root; each worktree has its own assignment. Outside
+Git it looks for the nearest ancestor with config, without arbitrarily traversing home/root.
+Invalid config, unknown/expired or disallowed profile:
+explicit error, with no switch to another account.
 
-`cma project init` sin perfil permite selección antes de lanzar. En terminal
-interactiva, sin perfil, el wrapper ofrece selector, guardar la elección en el
-proyecto y opción de login habitual sin gestionar; no pide tokens. Sin interacción
-y sin asignación falla. `-p`/`--print` nunca abre selector, aunque haya terminal.
-Los comandos administrativos `auth`, `setup-token`, `plugin`, `update`, `install`
-y `doctor`, así como `--help`/`--version`, se pasan directamente al Claude oficial
-sin consultar perfiles ni recuperar tokens de cma. Esto permite usarlos después
-de activar la función de shell `claude`. `--bare`, background y cloud se rechazan
-al lanzar conversaciones gestionadas; quedan fuera del contrato del wrapper.
-`project use` afecta lanzamientos futuros, no cambia el proceso Claude actual.
+Mode and login are shown by `cma status` (`Mode:`, `Config directory:`, `Login:`).
+`cma project init` without a profile allows selection before launch. In an
+interactive terminal, without a profile, the wrapper offers a selector, the option to save the choice in the
+project, and the option to use the usual unmanaged login; it does not request tokens. Without interaction
+and without an assignment, it fails. `-p`/`--print` never opens a selector, even in a terminal.
+Administrative commands `auth`, `setup-token`, `plugin`, `update`, `install`
+and `doctor`, as well as `--help`/`--version`, never retrieve tokens from cma. With an
+explicit `--profile`, the profile must resolve and, if it is config-dir, the command
+runs with that profile's `CLAUDE_CONFIG_DIR`; the current project's `allowedProfiles` is
+not applied, since login is account administration. Without `--profile`, the project
+profile is tried best-effort; on any failure, or for a token profile, the command is
+passed through to official Claude untouched, except that a config-dir project profile
+whose directory cannot be prepared is an error (the default `~/.claude` account is never
+used by mistake). Management commands also work inside a managed session, where they pass
+through with the session's inherited environment; only managed conversations are refused
+when nested. This allows their use after enabling the `claude`
+shell function. When launching managed conversations, `--bare` is rejected in both modes;
+`--bg`/`--background`/`--cloud` are rejected only in token mode (config-dir mode has a
+full login and forwards them; unverified with real accounts).
+`project use` affects future launches; it does not change the current Claude process.
 
-`shared` mantiene memoria existente. `per-profile` separa solo memoria automática
-mediante autoMemoryDirectory y overlay temporal; no migra ni copia memoria.
-Historial, conversación, CLAUDE.md, código y resto de configuración permanecen
-comunes. Atiende avisos de settings/managed memory; no es aislamiento completo.
+`shared` keeps existing memory. `per-profile` separates automatic memory only
+through autoMemoryDirectory and a temporary overlay, in both modes; it does not migrate
+or copy memory. In config-dir mode, automatic memory and history are common to all
+profiles through the shared `projects/` link. History, conversation, CLAUDE.md, code,
+and the rest of the configuration remain shared. Heed settings/managed memory warnings; this is not complete isolation.
 
-## Lanzamiento y cambio
+## Launch and switch
 
 ```sh
 claude-cma
 cma launch --profile trabajo -- --resume ID_REAL_DE_SESION
 ```
 
-Todo tras `--` se pasa a Claude. El wrapper conserva stdio, señales y código de
-salida. No recupera automáticamente una cuenta con cuota agotada ni falla hacia
-otra identidad. Detecta conflictos de autenticación/routing sin borrar políticas.
+Everything after `--` is passed to Claude. The wrapper preserves stdio, signals, and exit
+code. In config-dir mode it sets `CLAUDE_CONFIG_DIR` (and never `CLAUDE_CODE_OAUTH_TOKEN`);
+in token mode it injects the token. Switching works in both modes and between them; with
+config-dir profiles, shared `projects/` lets `--resume SESSION_ID` resolve in the
+destination directory. It does not automatically recover an account with an exhausted quota or fall back to
+another identity. It detects authentication/routing conflicts without deleting policies.
 
-Skills reales namespaced (manual-only):
+Actual namespaced skills (manual-only):
 
-| Skill | Equivalente CLI / efecto |
+| Skill | CLI equivalent / effect |
 | --- | --- |
 | `/accounts:status` | `cma status --json` |
 | `/accounts:list` | `cma profiles list --json` |
-| `/accounts:use ID session` | `cma switch ID --scope session --confirm-context-transfer`, solo después del consentimiento |
-| `/accounts:use ID project` | `cma switch ID --scope project --confirm-context-transfer`, después del consentimiento; persistente |
+| `/accounts:use ID session` | `cma switch ID --scope session --confirm-context-transfer`, only after consent |
+| `/accounts:use ID project` | `cma switch ID --scope project --confirm-context-transfer`, after consent; persistent |
 | `/accounts:project init ID` | `cma project init --profile ID` |
 | `/accounts:project use ID` | `cma project use ID` |
-| `/accounts:add ID` | Instrucciones de `claude setup-token` y `cma profiles add`; importación solo en terminal |
+| `/accounts:add ID` | Instructions for `cma profiles add` + `cma profiles login` (config-dir) or `--mode token` with `claude setup-token`; terminal only |
 | `/accounts:memory shared` | `cma project memory shared` |
 | `/accounts:memory per-profile` | `cma project memory per-profile` |
 
-Para cambio gestionado el hook SessionStart debe haber registrado el ID real en
-esta ejecución. Elige scope y **autoriza transferir contexto**. Entonces:
+For a managed switch, the SessionStart hook must have registered the real ID in
+this run. Choose a scope and **authorize context transfer**. Then:
 
 ```sh
 cma switch personal --scope session --confirm-context-transfer
 ```
 
-Dentro del modelo lo solicita `/accounts:use`. Después escribe `/exit`: el
-wrapper detecta la solicitud al salir normalmente y reanuda con `--resume` y el
-ID exacto registrado. No mata la TUI ni inyecta auth en caliente. Salida con error
-no reinicia; otras sesiones no cambian. `scope project` persiste la asignación;
-`scope session` no. Cambio de cwd/proyecto requiere detección/aviso, no un cambio
-silencioso de auth. Sin wrapper el hook avisa, y switch no está disponible.
+Inside the model, request it with `/accounts:use`. Then enter `/exit`:
+the wrapper detects the request after normal exit and resumes with `--resume` and the
+exact registered ID. It does not kill the TUI or inject auth at runtime. An error exit
+does not restart; other sessions do not change. `scope project` persists the assignment;
+`scope session` does not. A cwd/project change requires detection/warning, not a
+silent auth change. Without the wrapper, the hook warns, and switch is unavailable.
 
-**Cuota agotada:** un skill puede necesitar al modelo y no ejecutarse. Usa la
-CLI desde una terminal que herede el entorno de ESA ejecución (`CMA_LAUNCH_ID`,
-`CMA_RUN_DIR`, `CMA_PROJECT_ROOT`, `CMA_ACTIVE_PROFILE`, `CMA_MANAGED`); no los
-inventes ni reutilices desde otra sesión. En una terminal independiente sin ese
-entorno, sal normalmente y lanza `cma launch --profile personal -- --resume
-ID_REAL_DE_SESION` solo con consentimiento sobre transferencia de contexto.
-Si no conoces el ID real, inicia una nueva sesión: nunca adivinarlo ni usar
-`--continue` como sustituto del handoff exacto.
+**Exhausted quota:** a skill may need the model and may not run. Use the
+CLI from a terminal that inherits the environment of THAT run (`CMA_LAUNCH_ID`,
+`CMA_RUN_DIR`, `CMA_PROJECT_ROOT`, `CMA_ACTIVE_PROFILE`, `CMA_MANAGED`); do not
+invent or reuse these from another session. In a separate terminal without that
+environment, exit normally and launch `cma launch --profile personal -- --resume
+ID_REAL_DE_SESION` only with consent to transfer context.
+If you do not know the real ID, start a new session: never guess it or use
+`--continue` as a substitute for the exact handoff.
 
-## Desinstalación
+## Uninstallation
 
-Acciones deliberadas del usuario en terminal:
+Deliberate user actions in the terminal:
 
 ```sh
 cma uninstall
-# Si instalaste en otro destino:
-cma uninstall --target /ruta/absoluta/cma-runtime
+# If installed at another destination:
+cma uninstall --target /absolute/path/cma-runtime
 claude plugin uninstall accounts@claude-multi-account-local
 claude plugin marketplace remove claude-multi-account-local
 ```
 
-Revisa el informe: elimina únicamente instalación/shims/integración gestionada,
-no el binario oficial ni los archivos ajenos del shell. No elimina perfiles,
-secretos, historial o memoria automáticamente. Para retirar un secreto usa
-`cma profiles remove ID` deliberadamente antes de desinstalar. No borrar
-credenciales oficiales ni datos de terceros.
+Review the report: it removes only the managed installation/shims/integration,
+not the official binary or unrelated shell files. It does not automatically remove profiles,
+secrets, profile directories, history, or memory. To remove a secret or a profile
+directory, deliberately run `cma profiles remove ID` (add `--purge` for a config-dir
+directory) before uninstalling. Do not delete
+official credentials or third-party data.
 
-## Verificación pendiente
+## Pending verification
 
-Tests locales con Claude/backends falsos no verifican auth real. Para una prueba
-manual autorizada: generar/importar tokens fuera del modelo, iniciar wrapper con
-plugin, comprobar cuenta/recursos mediante interfaz oficial, consentir el cambio,
-salir con `/exit` y comprobar ID exacto, perfil y persistencia deseada. Usar
-contenido de prueba no sensible. **Reanudación real entre cuentas, disponibilidad
-de recursos de organización y compatibilidad con cada versión de Claude no
-verificadas aquí**; no afirmar éxito antes de esa prueba.
+Local tests with fake Claude/backends do not verify real auth; nothing here has been
+tested with real accounts. For an authorized manual test: log in (or generate/import
+tokens) outside the model, start the wrapper with
+the plugin, check the account/resources through the official interface, consent to the switch,
+exit with `/exit`, and verify the exact ID, profile, and desired persistence. Use
+non-sensitive test content. **Real cross-account resumption, availability of
+organizational resources, and compatibility with each Claude version have
+not been verified here**; do not claim success before that test. Also unverified for
+config-dir mode:
+
+- Whether official Claude keeps a symlinked `settings.json`/`history.jsonl` as a symlink
+  when rewriting it. If it replaces the link with a regular file, `EnsureProfileDir`
+  reports a conflict and that profile diverges for that file.
+- `plugins/` stores absolute install paths under the writing profile's directory; they
+  resolve through that profile's symlink, and purging that profile can break them.
+- `claude auth login` honouring `CLAUDE_CONFIG_DIR`, and remote control and
+  cross-account `--resume` working with real accounts.

@@ -62,7 +62,11 @@ func validateMetadata(id string, p Profile) error {
 	if p.ID != id || p.Verification != "unverified" {
 		return errors.New("Malformed profile identity/verification.")
 	}
-	for _, v := range []string{p.Label, p.Email, p.Organization, p.OrganizationID} {
+	// Account metadata may be unknown: setup-token only returns an opaque token.
+	for i, v := range []string{p.Label, p.Email, p.Organization, p.OrganizationID} {
+		if i > 0 && v == "" {
+			continue
+		}
 		if !utf8.ValidString(v) || strings.TrimSpace(v) == "" || utf8.RuneCountInString(v) > 512 {
 			return errors.New("Profile metadata must contain nonempty printable text.")
 		}
@@ -75,11 +79,11 @@ func validateMetadata(id string, p Profile) error {
 	u := strings.TrimPrefix(p.OrganizationID, "urn:uuid:")
 	u = strings.Trim(u, "{}")
 	u = strings.ReplaceAll(u, "-", "")
-	if !uuidRE.MatchString(u) {
+	if p.OrganizationID != "" && !uuidRE.MatchString(u) {
 		return errors.New("Organization ID must be a UUID.")
 	}
-	if p.SecretBackend != "file" && p.SecretBackend != "secret-service" {
-		return errors.New("Unknown profile secret backend; Linux supports file and secret-service only.")
+	if p.SecretBackend != "file" && p.SecretBackend != "secret-service" && p.SecretBackend != ConfigDirBackend {
+		return errors.New("Unknown profile secret backend; Linux supports file, secret-service and config-dir only.")
 	}
 	if !launchRE.MatchString(p.SecretRef) {
 		return errors.New("Invalid secret reference.")
@@ -207,6 +211,9 @@ func GetToken(id string) (string, error) {
 	if e != nil {
 		return "", e
 	}
+	if IsConfigDir(p) {
+		return "", errors.New("Profile uses a configuration directory; it has no token.")
+	}
 	if e = EnsureNotExpired(p); e != nil {
 		return "", e
 	}
@@ -296,8 +303,8 @@ func AddProfile(p Profile, token, backendName string) (Profile, error) {
 	if e != nil {
 		return Profile{}, e
 	}
-	if _, ok := r.Profiles[p.ID]; ok {
-		return Profile{}, errors.New("Profile already exists; use profiles renew.")
+	if old, ok := r.Profiles[p.ID]; ok {
+		return Profile{}, duplicateProfileError(old)
 	}
 	if e = secretSet(p, token); e != nil {
 		return Profile{}, e
@@ -328,6 +335,9 @@ func RenewProfile(id, token string) (Profile, error) {
 	p, ok := r.Profiles[id]
 	if !ok {
 		return Profile{}, errors.New("Unknown profile: " + id)
+	}
+	if IsConfigDir(p) {
+		return Profile{}, errors.New("Profile uses a configuration directory; run cma profiles login " + id + " instead.")
 	}
 	old := p
 	p.SecretRef, e = newRef()
@@ -368,6 +378,9 @@ func RemoveProfile(id string) error {
 	delete(r.Profiles, id)
 	if e = AtomicWriteJSON(filepath.Join(ConfigHome(), "profiles.json"), r); e != nil {
 		return e
+	}
+	if IsConfigDir(p) {
+		return nil
 	}
 	return secretRemove(p)
 }

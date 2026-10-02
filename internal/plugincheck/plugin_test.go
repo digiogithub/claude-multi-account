@@ -143,7 +143,7 @@ func TestSixManualSkillsAndSecretSafeAdd(t *testing.T) {
 		}
 	}
 	add := read(t, filepath.Join(root, "add", "SKILL.md"))
-	for _, required := range []string{"claude setup-token", "entrada oculta", "make build", "make install", "CMA_BINARY", "No uses `--token-stdin`", "no leas `.credentials.json`"} {
+	for _, required := range []string{"claude setup-token", "cma profiles add personal --label \"Personal\"", "hidden input", "all optional", "make build", "make install", "CMA_BINARY", "Do not use `--token-stdin`", "or read `.credentials.json`", "cma profiles login personal", "--mode token"} {
 		if !strings.Contains(add, required) {
 			t.Fatalf("add missing safety/bootstrap guidance: %s", required)
 		}

@@ -192,6 +192,38 @@ func TestUnmanagedCollisionPreflight(t *testing.T) {
 		}
 	}
 }
+func TestIdenticalUntrackedBinaryAdopted(t *testing.T) {
+	_, target := setup(t)
+	binary, _ := os.Executable()
+	source, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(target, "bin", "cma")
+	mustWrite(t, path, string(source))
+	if err := os.Chmod(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Reinstalling from the installed copy itself must work without a marker.
+	old := executable
+	executable = func() (string, error) { return path, nil }
+	t.Cleanup(func() { executable = old })
+	mustInstall(t, target, false)
+	if read(t, path) != string(source) {
+		t.Fatal("adopted binary changed")
+	}
+	for _, name := range []string{Marker, "bin/claude-cma"} {
+		if _, err := os.Stat(filepath.Join(target, name)); err != nil {
+			t.Fatal("adoption did not complete: " + name)
+		}
+	}
+	if _, err := Uninstall(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("adopted binary not tracked")
+	}
+}
 func TestModifiedFileInstallRefused(t *testing.T) {
 	_, target := setup(t)
 	mustInstall(t, target, false)

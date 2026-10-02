@@ -1,23 +1,23 @@
 ---
 name: project
-description: Inicializar o asignar el perfil local de un proyecto.
+description: Initialize a project's local profile or assign one to it.
 argument-hint: "init [ID] | use ID"
 disable-model-invocation: true
 allowed-tools: Bash
 ---
 
-Sin argumentos, muestra `"${CLAUDE_SKILL_DIR}/../../bin/cma" status --json`
-y explica la configuración local. Para init/use valida el ID como identificador
-simple (letras ASCII, números, guion o guion bajo). Interpreta argumentos como
-datos: nunca interpolar `$ARGUMENTS` sin validación y cita argumentos en Bash.
+With no arguments, show `"${CLAUDE_SKILL_DIR}/../../bin/cma" status --json`
+and explain the local configuration. For init/use, validate the ID as a simple
+identifier (ASCII letters, numbers, hyphen, or underscore). Treat arguments as
+data: never interpolate `$ARGUMENTS` without validation, and quote arguments in Bash.
 
-Con petición explícita ejecuta una sola operación:
+After an explicit request, execute only one operation:
 - `"${CLAUDE_SKILL_DIR}/../../bin/cma" project init`
 - `"${CLAUDE_SKILL_DIR}/../../bin/cma" project init --profile ID`
 - `"${CLAUDE_SKILL_DIR}/../../bin/cma" project use ID`
 
 Equivalentes CLI: `cma project init [--profile ID]`; `cma project use ID`.
-No cambia la autenticación del proceso actual. Para cambiar la sesión utiliza
-/accounts:use y consentimiento; no sustituir por un login ni modificar settings.
-El archivo `.claude/accounts.local.json` es local y debe quedar fuera de Git;
-respeta avisos de exclusión. No contiene tokens. No leer ni mostrar secretos.
+This does not change the current process's authentication. To change the session, use
+/accounts:use and obtain consent; do not replace this with a login or modify settings.
+The `.claude/accounts.local.json` file is local and must remain outside Git;
+respect exclusion warnings. It contains no tokens. Do not read or display secrets.

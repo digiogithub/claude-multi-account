@@ -51,10 +51,15 @@ func isolated(t *testing.T) (string, core.Project) {
 			t.Fatal(err)
 		}
 	}
+	t.Setenv("CMA_ACCOUNTS_HOME", filepath.Join(base, "accounts"))
+	t.Setenv("CMA_SHARED_HOME", "")
 	oldLoad, oldRegistry, oldProfile, oldToken, oldSave, oldWait, oldTTY := loadProject, loadRegistry, getProfile, getToken, saveProject, wait, stdinTTY
+	oldEnsure, oldMgmt := ensureProfileDir, managementProject
 	t.Cleanup(func() {
 		loadProject, loadRegistry, getProfile, getToken, saveProject, wait, stdinTTY = oldLoad, oldRegistry, oldProfile, oldToken, oldSave, oldWait, oldTTY
+		ensureProfileDir, managementProject = oldEnsure, oldMgmt
 	})
+	managementProject = func(string) (string, core.Project, error) { return root, project, nil }
 	loadProject = func(string) (string, core.Project, error) { return root, project, nil }
 	loadRegistry = func() (core.Registry, error) {
 		return core.Registry{Version: 1, Profiles: map[string]core.Profile{"one": {ID: "one"}, "two": {ID: "two"}}}, nil

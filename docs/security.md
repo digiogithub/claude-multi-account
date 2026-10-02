@@ -1,99 +1,132 @@
-# Seguridad y límites
+# Security and Limitations
 
-## Frontera de confianza
+## Trust boundary
 
-Modo A utiliza exclusivamente `CLAUDE_CODE_OAUTH_TOKEN` en el subprocess Claude;
-conserva el mismo `CLAUDE_CONFIG_DIR`. No lee/intercambia `.credentials.json`,
-no implementa OAuth privado ni modifica credenciales del login oficial. No usa
-la variable no documentada `CLAUDE_CODE_ORGANIZATION_UUID` como selector. El token
-decide identidad; email, organización e ID de organización son metadatos
-**unverified** declarados por el usuario, no comprobados a partir del token.
-No descubrimiento automático de organizaciones, ni sincronización con claude.ai.
+In config-dir mode (the default) the Claude subprocess gets only `CLAUDE_CONFIG_DIR`
+pointing to the profile's directory; cma stores, reads, and injects no token. In token
+mode it uses only `CLAUDE_CODE_OAUTH_TOKEN` and preserves the ambient
+`CLAUDE_CONFIG_DIR`. In neither mode does it read/exchange `.credentials.json`,
+implement private OAuth, or modify official login credentials. It does not use
+the undocumented `CLAUDE_CODE_ORGANIZATION_UUID` variable as a selector. The login
+(config-dir) or token determines identity; email, organization, and organization ID are **unverified**
+metadata declared by the user, not verified from the token. `--email`,
+`--organization`, and `--organization-id` are all optional; omitted values are
+stored empty and displayed as unknown. There is no automatic network/token identity
+or organization discovery: no documented supported API for that discovery has been
+confirmed. There is no synchronization with claude.ai.
 
-Esto no aísla completamente cuentas. Son comunes historial, transcripciones,
-CLAUDE.md, código, archivos de proyecto y configuración habitual. `per-profile`
-separa únicamente memoria automática mediante autoMemoryDirectory; no migra
-memoria ni borra contenido previo. Reanudar entre perfiles transfiere conversación
-y contexto potencialmente sensibles: exige consentimiento explícito. Incluso
-una ruta separada de memoria no impide al modelo acceder a archivos autorizados.
+This does not fully isolate accounts. History, transcripts,
+CLAUDE.md, code, project files, and usual configuration are shared; in config-dir mode
+this includes everything linked into the shared directory. `per-profile`
+separates automatic memory only through autoMemoryDirectory; it does not migrate
+memory or delete prior content. Resuming across profiles transfers conversation
+and potentially sensitive context: it requires explicit consent. Even
+separate memory paths do not prevent the model from accessing authorized files.
 
-Usuarios/procesos con la misma identidad del sistema, root, malware o backups
-pueden acceder a procesos/datos locales. Permisos 0700/0600 y llavero reducen
-exposición, no protegen frente a esos adversarios. El gestor no es un sandbox
-ni una frontera de organización. `allowedProfiles` es política local editable,
-no autorización de servidor.
+Users/processes with the same system identity, root, malware, or backups
+may access local processes/data. Permissions 0700/0600 and the keychain reduce
+exposure; they do not protect against those adversaries. The manager is not a sandbox
+or an organizational boundary. `allowedProfiles` is editable local policy,
+not server authorization.
 
-## Tokens y almacenamiento
+## Config-dir mode and the shared directory
 
-- Flujo oficial `claude setup-token` fuera del modelo; importación en terminal
-  Linux con entrada oculta (echo desactivado y restaurado al terminar).
-  Nunca pedir token en chat ni argumentos; tampoco stdin manejado por el modelo.
-  `--token-stdin` queda para automatización externa deliberada.
-- `auto`: Secret Service mediante `secret-tool` en Linux. Sin llavero disponible,
-  fallar y explicar; no escribir archivo como fallback silencioso.
-- `--backend file`: opt-in explícito, texto claro 0600 bajo directorio privado;
-  riesgo ante backup, malware y mismo UID. Sin cifrado equivalente a llavero.
-- Registro solo metadatos y referencias de secretos, no tokens. Los comandos
-  list/status/JSON y registros de ejecución no deben incluirlos.
-- No export global, token en settings, logs ni argumentos al proceso Claude.
-  El entorno del hijo contiene el token: no lo vuelques ni captures con `env`.
-- La caducidad local conocida bloquea launch hasta renovación; desconocida se
-  muestra como tal y no prueba validez. El gestor no verifica el token por red.
+- cma never opens `.credentials.json`; login state uses `Lstat` only. `.credentials.json`
+  and `.claude.json` are never shared, linked, copied by `shared import`, or opened.
+- Accounts home, shared, `profiles`, and each profile directory are owner-only 0700 with
+  no symlinked ancestors (`SecureDirectory`). Like the keychain, this does not protect
+  against the same UID, root, malware, or backups.
+- Symlinks are created only inside a profile directory and only to fixed shared names;
+  nothing is overwritten (conflicts are reported). `profiles remove --purge` unlinks
+  symlinks without following them and refuses paths that are not exactly the profile
+  directory or that have symlinked ancestors.
+- **Sharing `projects/` means conversation history and memory are readable under every
+  account.** Switching still requires `--confirm-context-transfer`.
+- **Shared `settings.json` applies to all accounts.** An `apiKeyHelper` or auth `env`
+  entry there is detected as a conflict before launch.
+- `shared import` copies from a source directory into shared; never import from a
+  directory you do not trust. Top-level symlinked entries are followed only when they
+  resolve outside the accounts and shared homes; nested symlinks are recreated as symlinks,
+  never followed. Imported settings, skills, and plugins apply to every account.
 
-No habilitar shell trace (`set -x`) ni logs de entorno durante flujos secretos.
-Los comandos externos del llavero están dentro de la confianza del host; un
-backend comprometido invalida la protección. Si se comparte un token por error,
-no reproducirlo: revocar/renovar mediante herramientas oficiales.
+## Tokens and storage (token mode)
 
-## Autenticación y políticas
+- Official `claude setup-token` flow outside the model; import in a Linux terminal
+  with hidden input (echo disabled and restored on completion).
+  Never request a token in chat or arguments; nor use stdin handled by the model.
+  `--token-stdin` is reserved for deliberate external automation.
+- `auto`: Secret Service through `secret-tool` on Linux. If no keychain is available,
+  fail and explain; do not silently fall back to writing a file.
+- `--backend file`: explicit opt-in, plaintext 0600 under a private directory;
+  risk from backups, malware, and same UID. No encryption equivalent to the keychain.
+- Registry contains metadata and secret references only, not tokens. The
+  list/status/JSON commands and run logs must not include them.
+- No global export, token in settings, logs, or arguments to the Claude process.
+  The child environment contains the token: do not dump or capture it with `env`.
+- Known local expiration blocks launch until renewal; an unknown expiration is
+  shown as such and does not prove validity. The manager does not verify the token over the network.
 
-Antes de launch se detectan conflictos de API keys/auth token, apiKeyHelper,
-proveedores cloud/gateway y endpoints personalizados en entorno/settings
-relevantes. El gestor falla sin eliminar esas políticas y sin elegir otro
-perfil. No es una verificación exhaustiva de infraestructura externa ni una
-forma de saltarse administración de Claude. No hay rotación automática de
-cuotas, autenticación en caliente ni fallback silencioso de cuenta.
+Do not enable shell trace (`set -x`) or environment logging during secret flows.
+External keychain commands are within the host's trust boundary; a
+compromised backend invalidates the protection. If a token is shared by mistake,
+do not reproduce it: revoke/renew it using official tools.
 
-## Solicitudes de cambio
+## Authentication and policies
 
-Cada wrapper crea ejecución independiente con nonce, directorio 0700 y JSON
-0600. SessionStart registra ID/cwd con validación; switch valida ejecución,
-perfil permitido, proyecto, sesión registrada y consentimiento. Una solicitud
-para otra ejecución o manipulada no debe permitir handoff. No hay archivo global
-que cambie todas las sesiones. No se mata la TUI: se procesa tras salida normal;
-error de Claude no provoca reinicio automático. Reanuda ID exacto, no `--continue`.
-Un usuario del mismo UID puede manipular archivos; la validación reduce errores
-y falsificaciones casuales, no sustituye una frontera OS.
+Before launch, conflicts involving API keys/auth tokens, apiKeyHelper,
+cloud/gateway providers, and custom endpoints are detected in relevant environment/settings.
+The manager fails without removing those policies and without choosing another
+profile. Environment and settings auth/routing variables and `apiKeyHelper` conflict in
+both modes, because they would override the directory login; `forceLoginMethod` and
+`forceLoginOrgUUID` conflict only in token mode. This is not an exhaustive check of external infrastructure or a way to bypass
+Claude administration. There is no automatic quota rotation,
+hot authentication, or silent account fallback.
 
-## Plugin e instalación
+## Switch requests
 
-Todos los skills `accounts` son `disable-model-invocation: true`; esto controla
-invocación, no convierte el texto del skill en un sandbox. Importación/renovación
-son exclusivamente acciones humanas en terminal. SessionStart lee solo JSON de
-la sesión desde stdin y llama al core; no recibe tokens. El bridge no instala
-nada por cargarlo. `CMA_BINARY` absoluto es ejecutable de confianza elegido por
-el usuario; no apuntar a código no confiable.
+Each wrapper creates an independent run with a nonce, mode-0700 directory, and mode-0600 JSON.
+SessionStart records ID/cwd with validation; switch validates the run,
+allowed profile, project, registered session, and consent. A request
+for another run or a tampered request must not permit handoff. There is no global file
+that changes all sessions. The TUI is not killed: the request is processed after normal exit;
+Claude errors do not cause an automatic restart. It resumes the exact ID, not `--continue`.
+A user with the same UID can manipulate files; validation reduces mistakes
+and casual forgery, but does not replace an OS boundary.
 
-El marketplace incluye la raíz completa como fuente Go canónica. Revisar
-contenido y versión antes de compilar o instalar. `dist/` está ignorado y el
-binario puede no incluirse: usar `make build` explícito en la raíz completa del
-plugin o `CMA_BINARY` a una instalación estable. Hooks no compilan ni instalan.
-No publicar datos locales junto al checkout; `.gitignore` no impide copiar
-archivos ajenos en un paquete manual. Instalar plugin no instala CLI/shims ni
-cambia shell. Instalación estable y `--shell` son explícitos. Config local
-`.claude/accounts.local.json` se excluye localmente de Git o se advierte;
-comprobar siempre status antes de publicar.
+## Plugin and installation
 
-Formato JSON existente preservado; solo secretos `secret-service` y `file`
-admitidos. Perfiles de otros sistemas no se convierten ni se recuperan sus
-secretos automáticamente; conservar datos previos y decidir una importación
-Linux explícita en terminal.
+All `accounts` skills use `disable-model-invocation: true`; this controls
+invocation, but does not turn skill text into a sandbox. Import/renewal
+are human-only terminal actions. SessionStart reads only session JSON from
+stdin and calls the core; it receives no tokens. Loading the bridge does not
+install anything. An absolute `CMA_BINARY` is a trusted executable selected by
+the user; do not point it at untrusted code.
 
-## Fuera de alcance / pruebas
+The marketplace includes the full root as the canonical Go source. Review
+content and version before compiling or installing. `dist/` is ignored, and the
+binary may not be included: use explicit `make build` at the full plugin root
+or set `CMA_BINARY` to a stable installation. Hooks do not compile or install.
+Do not publish local data alongside the checkout; `.gitignore` does not prevent copying
+unrelated files into a manual package. Installing the plugin does not install the CLI/shims or
+change the shell. Stable installation and `--shell` are explicit. Local config
+`.claude/accounts.local.json` is excluded from Git locally or warned about;
+always check status before publishing.
 
-Solo terminal local Linux (WSL con entorno Linux); no VSCode, Desktop ni background. No promesa
-de sincronizar claude.ai, recursos organizativos o aislamiento completo. Tests
-con binarios/backends falsos no verifican reanudación real intercuentas ni auth.
-Esas pruebas requieren permiso, login del usuario y contenido no sensible; no
-se realizaron aquí. No acceder a credenciales reales ni instalar/modificar shell
-para ejecutar las pruebas de desarrollo.
+The existing JSON format (version 1) is preserved; config-dir profiles use
+`secret_backend: "config-dir"` with no secret, and otherwise only `secret-service` and
+`file` secrets are supported. Profiles from other systems are neither converted nor do their
+secrets get automatically recovered; preserve prior data and decide on an explicit
+Linux import in the terminal.
+
+## Out of scope / tests
+
+Local Linux terminal only (WSL with a Linux environment); no VSCode, Desktop, or background. No promise
+to synchronize claude.ai, organizational resources, or provide complete isolation. Tests
+with fake binaries/backends do not verify real cross-account resumption or auth.
+Those tests require permission, the user's login, and non-sensitive content; they
+were not performed here. Unverified with real Claude: whether it keeps symlinked
+`settings.json`/`history.jsonl` as links when rewriting them (otherwise a conflict is
+reported and that file diverges per profile); that `plugins/` absolute install paths
+survive purging the profile that wrote them; that `claude auth login` honours
+`CLAUDE_CONFIG_DIR`; and that remote control and cross-account `--resume` work. Do not access real credentials or install/modify the shell
+to run development tests.

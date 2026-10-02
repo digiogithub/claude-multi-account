@@ -1,0 +1,8 @@
+---
+created_at: 2026-10-01T14:32:52.50231627Z
+updated_at: 2026-10-01T14:32:52.50231627Z
+tags:
+    - implementation
+    - decision
+---
+Profile add now requires only ID, --label LABEL and token (hidden terminal input by default). Email, organization and organization_id are optional declared unverified metadata, persisted as empty strings when unknown, preserving JSON v1 fields/types. Nonempty supplied metadata remains validated including UUID organization_id. Human list displays unknown for missing email/organization. No automated identity discovery/network calls added: official setup-token documentation only returns opaque token; no supported discovery API confirmed, and using usual Claude auth status could report unrelated stored-login identity. Relates to [[claude-multi-account/implementation/go-linux-verification]]. Regression coverage minimal CRUD, optional individual fields, invalid metadata, compiled CLI minimal add and fake launch. Core/CLI/launcher/install tests and race pass; vet/build/format/diff and local plugin validation pass. Full go test has two existing failures due to absent bin/cma and bin/claude-cma removed in prior commit, unchanged by this work. English skill safety assertion updated; remaining plugin tests pass. No real credentials/login/network auth tests, installation or commits.

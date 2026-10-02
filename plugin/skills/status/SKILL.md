@@ -1,14 +1,15 @@
 ---
 name: status
-description: Mostrar perfil, proyecto y estado local redactado.
+description: Show the profile, project, and redacted local status.
 disable-model-invocation: true
 allowed-tools: Bash
 ---
 
-Estado local (sin tokens):
+Local status (no tokens):
 !`"${CLAUDE_SKILL_DIR}/../../bin/cma" status --json`
 
-Explica solamente estos datos. Si no hay wrapper gestionado, indícalo: instalar
-el plugin no activa el wrapper. CLI equivalente: `cma status --json`.
-No inspecciones variables de autenticación, almacenes secretos ni `.credentials.json`.
-La organización/email son metadatos declarados y no verificados por el token.
+Explain only this data, including the profile mode, configuration directory, and
+login state when present. If there is no managed wrapper, say so: installing
+the plugin does not activate the wrapper. CLI equivalent: `cma status --json`.
+Do not inspect authentication variables, secret stores, or `.credentials.json`.
+The organization/email are declared metadata and are not verified by the token.

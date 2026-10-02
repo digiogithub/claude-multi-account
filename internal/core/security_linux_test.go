@@ -157,3 +157,30 @@ func TestExpiryFormatsAndMetadataValidation(t *testing.T) {
 		reject(t, e)
 	}
 }
+
+func TestOptionalAccountMetadataValidation(t *testing.T) {
+	setup(t)
+	p, e := AddProfile(Profile{ID: "one", Label: "Personal"}, "synthetic", "file")
+	must(t, e)
+	got, e := GetProfile("one")
+	must(t, e)
+	if got != p || got.Email != "" || got.Organization != "" || got.OrganizationID != "" {
+		t.Fatal("Unknown metadata did not survive registry reload")
+	}
+	for _, field := range []string{"email", "organization", "organization_id"} {
+		for _, value := range []string{" ", "bad\ntext", strings.Repeat("x", 513), string([]byte{0xff})} {
+			invalid := p
+			switch field {
+			case "email":
+				invalid.Email = value
+			case "organization":
+				invalid.Organization = value
+			case "organization_id":
+				invalid.OrganizationID = value
+			}
+			reject(t, validateMetadata(invalid.ID, invalid))
+		}
+	}
+	p.OrganizationID = "not-a-uuid"
+	reject(t, validateMetadata(p.ID, p))
+}

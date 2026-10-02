@@ -30,6 +30,8 @@ func isolated(t *testing.T) string {
 	t.Setenv("HOME", home)
 	t.Setenv("CMA_CONFIG_HOME", filepath.Join(home, "config"))
 	t.Setenv("CMA_STATE_HOME", filepath.Join(home, "state"))
+	t.Setenv("CMA_ACCOUNTS_HOME", filepath.Join(home, "accounts"))
+	t.Setenv("CMA_SHARED_HOME", "")
 	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, "claude"))
 	project := filepath.Join(home, "project")
 	if err := os.MkdirAll(filepath.Join(project, ".git"), 0700); err != nil {
@@ -56,7 +58,7 @@ func call(t *testing.T, args []string, input string) (int, string, string) {
 	return code, out.String(), stderr.String()
 }
 func addArgs(id string) []string {
-	return []string{"profiles", "add", id, "--label", "Example", "--email", "user@example.invalid", "--organization", "Example", "--organization-id", "00000000-0000-0000-0000-000000000001", "--backend", "file", "--token-stdin"}
+	return []string{"profiles", "add", id, "--label", "Example", "--email", "user@example.invalid", "--organization", "Example", "--organization-id", "00000000-0000-0000-0000-000000000001", "--mode", "token", "--backend", "file", "--token-stdin"}
 }
 func add(t *testing.T, id string) {
 	t.Helper()
@@ -88,6 +90,72 @@ func TestProfileCRUDRedacted(t *testing.T) {
 	}
 	if code, out, err := call(t, []string{"profiles", "list", "--json"}, ""); code != 0 || strings.TrimSpace(out) != "[]" {
 		t.Fatalf("Empty list: %d %s %s", code, out, err)
+	}
+}
+
+func TestAddWithOptionalAccountMetadata(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		options []string
+	}{
+		{"unknown", nil},
+		{"email", []string{"--email", "user@example.invalid"}},
+		{"organization", []string{"--organization", "Example"}},
+		{"organization-id", []string{"--organization-id", "00000000-0000-0000-0000-000000000001"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			isolated(t)
+			args := append([]string{"profiles", "add", "one", "--label", "Personal", "--mode", "token", "--backend", "file", "--token-stdin"}, test.options...)
+			if code, _, err := call(t, args, testToken+"\n"); code != 0 {
+				t.Fatal(err)
+			}
+			profile, err := core.GetProfile("one")
+			if err != nil || profile.Label != "Personal" || profile.Verification != "unverified" {
+				t.Fatal("Invalid minimal profile", err)
+			}
+			if len(test.options) > 0 {
+				value := map[string]string{"email": profile.Email, "organization": profile.Organization, "organization-id": profile.OrganizationID}[test.name]
+				if value != test.options[1] {
+					t.Fatal("Supplied optional metadata was lost")
+				}
+			}
+			code, out, stderr := call(t, []string{"profiles", "list", "--json"}, "")
+			var items []core.Profile
+			if code != 0 || json.Unmarshal([]byte(out), &items) != nil || len(items) != 1 || !reflect.DeepEqual(items[0], profile) {
+				t.Fatal("Optional metadata did not round-trip", stderr)
+			}
+			if test.name == "unknown" {
+				if profile.Email != "" || profile.Organization != "" || profile.OrganizationID != "" {
+					t.Fatal("Account metadata was invented")
+				}
+				if code, out, err := call(t, []string{"profiles", "list"}, ""); code != 0 || !strings.Contains(out, "\tunknown\tunknown\t") {
+					t.Fatal("Unknown account metadata not displayed", err)
+				}
+			}
+			if code, _, err := call(t, []string{"profiles", "renew", "one", "--token-stdin"}, testToken+"-renewed\n"); code != 0 {
+				t.Fatal(err)
+			}
+			renewed, err := core.GetProfile("one")
+			if err != nil || renewed.Email != profile.Email || renewed.Organization != profile.Organization || renewed.OrganizationID != profile.OrganizationID {
+				t.Fatal("Renewal changed account metadata", err)
+			}
+			if code, _, err := call(t, []string{"profiles", "remove", "one"}, ""); code != 0 {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestAddStillRequiresLabelAndValidMetadata(t *testing.T) {
+	isolated(t)
+	if code, _, _ := call(t, []string{"profiles", "add", "one", "--mode", "token", "--backend", "file", "--token-stdin"}, testToken+"\n"); code != 2 {
+		t.Fatal("Missing label accepted")
+	}
+	for _, option := range []string{"--label", "--email", "--organization", "--organization-id"} {
+		args := []string{"profiles", "add", "one", "--label", "Personal", "--mode", "token", "--backend", "file", "--token-stdin", option, "invalid\ntext"}
+		if code, _, _ := call(t, args, testToken+"\n"); code != 1 {
+			t.Fatal("Invalid supplied metadata accepted")
+		}
 	}
 }
 
@@ -258,7 +326,7 @@ func TestCompiledCLIPipeAndFakeRuntime(t *testing.T) {
 		}
 		return code, string(output)
 	}
-	if code, out := run(addArgs("one"), testToken+"\n"); code != 0 {
+	if code, out := run([]string{"profiles", "add", "one", "--label", "Personal", "--mode", "token", "--backend", "file", "--token-stdin"}, testToken+"\n"); code != 0 {
 		t.Fatalf("Import: %d %s", code, out)
 	}
 	if code, out := run([]string{"profiles", "renew", "one"}, testToken+"\n"); code != 1 || !strings.Contains(out, "explicit --token-stdin") {

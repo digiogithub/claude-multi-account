@@ -35,6 +35,11 @@ var loadRegistry = core.LoadRegistry
 var getProfile = core.GetProfile
 var getToken = core.GetToken
 var saveProject = core.SaveProject
+var ensureProfileDir = core.EnsureProfileDir
+
+// managementProject is the best-effort project lookup for management commands. It is
+// separate from loadProject so administration never depends on launch seams.
+var managementProject = core.LoadProject
 var wait = waitProcess
 var stdinTTY = func() bool {
 	var term syscall.Termios
@@ -249,11 +254,14 @@ func explicitSettings(value string) (map[string]any, error) {
 	}
 	return readSettings(value)
 }
-func settings(args []string, root string) ([]map[string]any, []option, error) {
-	home, _ := os.UserHomeDir()
-	config := os.Getenv("CLAUDE_CONFIG_DIR")
+func settings(args []string, root, configDir string) ([]map[string]any, []option, error) {
+	config := configDir
 	if config == "" {
-		config = filepath.Join(home, ".claude")
+		home, _ := os.UserHomeDir()
+		config = os.Getenv("CLAUDE_CONFIG_DIR")
+		if config == "" {
+			config = filepath.Join(home, ".claude")
+		}
 	}
 	paths := []string{filepath.Join(homePath(config), "settings.json"), "/etc/claude-code/managed-settings.json"}
 	cwd, err := os.Getwd()
@@ -328,7 +336,7 @@ func truthy(v any) bool {
 		return true
 	}
 }
-func authConflicts(values []map[string]any) error {
+func authConflicts(values []map[string]any, tokenMode bool) error {
 	for _, key := range authEnv {
 		if os.Getenv(key) != "" {
 			return fmt.Errorf("Authentication/routing conflict: %s", key)
@@ -338,7 +346,7 @@ func authConflicts(values []map[string]any) error {
 		if truthy(obj["apiKeyHelper"]) {
 			return errors.New("Authentication conflict: apiKeyHelper")
 		}
-		if truthy(obj["forceLoginMethod"]) || truthy(obj["forceLoginOrgUUID"]) {
+		if tokenMode && (truthy(obj["forceLoginMethod"]) || truthy(obj["forceLoginOrgUUID"])) {
 			return errors.New("Managed login policy conflicts with token-based profile selection")
 		}
 		env := map[string]any{}
@@ -358,17 +366,65 @@ func authConflicts(values []map[string]any) error {
 	return nil
 }
 func validateProfile(id string, project core.Project) error {
+	_, err := resolveProfile(id, project)
+	return err
+}
+
+// resolveProfile validates the profile and returns its record, which decides the mode.
+func resolveProfile(id string, project core.Project) (core.Profile, error) {
 	if err := core.ValidateProfileID(id); err != nil {
-		return err
+		return core.Profile{}, err
 	}
 	if err := core.CheckAllowed(project, id); err != nil {
-		return err
+		return core.Profile{}, err
+	}
+	return lookupProfile(id)
+}
+
+// lookupProfile validates ID, existence and expiry without any project policy.
+func lookupProfile(id string) (core.Profile, error) {
+	if err := core.ValidateProfileID(id); err != nil {
+		return core.Profile{}, err
 	}
 	profile, err := getProfile(id)
 	if err != nil {
-		return err
+		return core.Profile{}, err
 	}
-	return core.EnsureNotExpired(profile)
+	if err := core.EnsureNotExpired(profile); err != nil {
+		return core.Profile{}, err
+	}
+	return profile, nil
+}
+
+// prepareDir ensures a config-dir profile directory, optionally reporting conflicts.
+func prepareDir(id string, warn bool) (string, error) {
+	dir, report, err := ensureProfileDir(id)
+	if err != nil {
+		return "", err
+	}
+	if warn {
+		for _, name := range report.Conflicts {
+			fmt.Fprintf(os.Stderr, "cma: shared link conflict in profile %s: %s (left untouched)\n", id, name)
+		}
+	}
+	return dir, nil
+}
+
+func unsupported(opts []option, configDir bool) error {
+	for _, o := range opts {
+		switch o.name {
+		case "--bare":
+			if configDir {
+				return errors.New("--bare is not supported: it ignores the profile configuration directory login")
+			}
+			return errors.New("Bare, background and cloud sessions are not supported by this terminal wrapper")
+		case "--bg", "--background", "--cloud":
+			if !configDir {
+				return errors.New("Bare, background and cloud sessions are not supported by this terminal wrapper")
+			}
+		}
+	}
+	return nil
 }
 func merge(left, right map[string]any) map[string]any {
 	out := map[string]any{}
@@ -387,7 +443,10 @@ func merge(left, right map[string]any) map[string]any {
 	return out
 }
 func memoryArgs(args []string, project core.Project, root, profile, runDir string) ([]string, error) {
-	values, spans, err := settings(args, root)
+	return memoryArgsIn(args, project, root, profile, runDir, "")
+}
+func memoryArgsIn(args []string, project core.Project, root, profile, runDir, configDir string) ([]string, error) {
+	values, spans, err := settings(args, root, configDir)
 	if err != nil {
 		return nil, err
 	}
@@ -483,25 +542,25 @@ func waitProcess(command []string, env []string) (int, error) {
 // Run preserves Claude argv and stdio, validates each run's consent/identity through
 // core.ReadSwitchRequest, and returns shell-normalized signal statuses.
 func Run(args []string, profileOverride string) (int, error) {
+	if len(args) > 0 && management[args[0]] {
+		return runManagement(args, profileOverride)
+	}
 	if os.Getenv("CMA_MANAGED") == "1" {
 		return 1, errors.New("Nested managed launch refused; exit the current Claude session first")
-	}
-	if len(args) > 0 && management[args[0]] {
-		binary, err := ResolveBinary()
-		if err != nil {
-			return 1, err
-		}
-		return wait(append([]string{binary}, args...), os.Environ())
 	}
 	opts, err := options(args)
 	if err != nil {
 		return 1, err
 	}
+	// --bare ignores any profile login in every mode: reject before any prompt.
+	for _, o := range opts {
+		if o.name == "--bare" {
+			return 1, errors.New("--bare is not supported: it ignores the profile login")
+		}
+	}
 	printing := false
 	for _, o := range opts {
 		switch o.name {
-		case "--bare", "--bg", "--background", "--cloud":
-			return 1, errors.New("Bare, background and cloud sessions are not supported by this terminal wrapper")
 		case "-p", "--print":
 			printing = true
 		}
@@ -570,18 +629,30 @@ func Run(args []string, profileOverride string) (int, error) {
 			fmt.Fprintln(os.Stderr, "Keep .claude/accounts.local.json out of Git (use .git/info/exclude).")
 		}
 	}
+	record, err := resolveProfile(profile, project)
+	if err != nil {
+		return 1, err
+	}
+	configDir := core.IsConfigDir(record)
+	// Mode-dependent option checks run before any token retrieval or process start.
+	if err := unsupported(opts, configDir); err != nil {
+		return 1, err
+	}
 	binary, err := ResolveBinary()
 	if err != nil {
 		return 1, err
 	}
-	values, _, err := settings(args, root)
+	dir := ""
+	if configDir {
+		if dir, err = prepareDir(profile, false); err != nil {
+			return 1, err
+		}
+	}
+	values, _, err := settings(args, root, dir)
 	if err != nil {
 		return 1, err
 	}
-	if err := authConflicts(values); err != nil {
-		return 1, err
-	}
-	if err := validateProfile(profile, project); err != nil {
+	if err := authConflicts(values, !configDir); err != nil {
 		return 1, err
 	}
 	launchID, err := randomID()
@@ -601,29 +672,50 @@ func Run(args []string, profileOverride string) (int, error) {
 	}
 	current := append([]string{}, args...)
 	for {
-		values, _, err = settings(current, root)
+		record, err := resolveProfile(profile, project)
 		if err != nil {
 			return 1, err
 		}
-		if err := authConflicts(values); err != nil {
+		configDir := core.IsConfigDir(record)
+		curOpts, err := options(current)
+		if err != nil {
 			return 1, err
 		}
-		if err := validateProfile(profile, project); err != nil {
+		if err := unsupported(curOpts, configDir); err != nil {
+			return 1, err
+		}
+		dir := ""
+		if configDir {
+			if dir, err = prepareDir(profile, true); err != nil {
+				return 1, err
+			}
+		}
+		values, _, err = settings(current, root, dir)
+		if err != nil {
+			return 1, err
+		}
+		if err := authConflicts(values, !configDir); err != nil {
 			return 1, err
 		}
 		// Construct overlays before fetching secrets; conflicts must never retrieve a token.
-		childArgs, err := memoryArgs(current, project, root, profile, runDir)
+		childArgs, err := memoryArgsIn(current, project, root, profile, runDir, dir)
 		if err != nil {
 			return 1, err
 		}
-		token, err := getToken(profile)
-		if err != nil {
-			return 1, err
+		updates := map[string]string{"CMA_LAUNCH_ID": launchID, "CMA_ACTIVE_PROFILE": profile, "CMA_PROJECT_ROOT": root, "CMA_MANAGED": "1", "CMA_RUN_DIR": runDir}
+		if configDir {
+			updates["CLAUDE_CONFIG_DIR"] = dir
+		} else {
+			token, err := getToken(profile)
+			if err != nil {
+				return 1, err
+			}
+			if strings.TrimSpace(token) == "" {
+				return 1, errors.New("Profile has no usable token")
+			}
+			updates["CLAUDE_CODE_OAUTH_TOKEN"] = token
 		}
-		if strings.TrimSpace(token) == "" {
-			return 1, errors.New("Profile has no usable token")
-		}
-		env := processEnv(map[string]string{"CLAUDE_CODE_OAUTH_TOKEN": token, "CMA_LAUNCH_ID": launchID, "CMA_ACTIVE_PROFILE": profile, "CMA_PROJECT_ROOT": root, "CMA_MANAGED": "1", "CMA_RUN_DIR": runDir})
+		env := processEnv(updates)
 		expected := core.Run{Version: 1, LaunchID: launchID, Profile: profile, ProjectRoot: root}
 		if err := core.AtomicWriteJSON(filepath.Join(runDir, "run.json"), expected); err != nil {
 			return 1, err
@@ -662,4 +754,47 @@ func Run(args []string, profileOverride string) (int, error) {
 			return 1, err
 		}
 	}
+}
+
+// runManagement runs official Claude management commands. A config-dir profile (explicit
+// or best-effort from the project) supplies its CLAUDE_CONFIG_DIR; everything else is an
+// untouched pass-through.
+func runManagement(args []string, profileOverride string) (int, error) {
+	var record core.Profile
+	var id string
+	if profileOverride != "" {
+		// Account administration (login) is not subject to the current project's allowedProfiles.
+		var err error
+		id = profileOverride
+		if record, err = lookupProfile(id); err != nil {
+			return 1, err
+		}
+	} else if os.Getenv("CMA_MANAGED") == "1" {
+		// Inside a managed session the inherited environment already carries its configuration.
+		return passthrough(args, os.Environ())
+	} else if cwd, err := os.Getwd(); err == nil {
+		if _, p, err := managementProject(cwd); err == nil && p.Profile != nil {
+			if rec, err := resolveProfile(*p.Profile, p); err == nil {
+				id, record = *p.Profile, rec
+			}
+		}
+	}
+	env := os.Environ()
+	if id != "" && core.IsConfigDir(record) {
+		// A failure must not fall back to the default account.
+		dir, err := prepareDir(id, true)
+		if err != nil {
+			return 1, err
+		}
+		env = processEnv(map[string]string{"CLAUDE_CONFIG_DIR": dir})
+	}
+	return passthrough(args, env)
+}
+
+func passthrough(args, env []string) (int, error) {
+	binary, err := ResolveBinary()
+	if err != nil {
+		return 1, err
+	}
+	return wait(append([]string{binary}, args...), env)
 }
