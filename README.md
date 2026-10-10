@@ -264,6 +264,21 @@ cma status
 
 `project use` affects future launches, not a session that is already open.
 
+### Run any `claude` command with the project's profile
+
+`cma claude ARGS...` runs the official `claude` with the project's profile and forwards every argument verbatim. Use it for configuration subcommands so they change the profile's directory instead of your default account:
+
+```sh
+cma claude mcp add --transport http docs https://example.com/mcp
+cma claude mcp list
+cma claude --profile personal plugin install NAME   # another profile, explicitly
+cma claude -p "summarize this repo"                  # a normal managed session
+```
+
+Configuration subcommands (`mcp`, `plugin`, `agents`, `auth`, `doctor`, ...) run with that profile's `CLAUDE_CONFIG_DIR` and no session supervision; other arguments start a managed session as `claude-cma` does. `claude-cma mcp ...` and, with shell integration, `claude mcp ...` behave the same. `--help` after `claude` goes to Claude; `cma help claude` shows cma's own help.
+
+Run `cma --help` for the complete command and option reference, or `cma help COMMAND` for one command with examples.
+
 ## 5. View and switch from Claude
 
 | Slash command | Action |

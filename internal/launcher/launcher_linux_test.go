@@ -26,7 +26,7 @@ func isolated(t *testing.T) (string, core.Project) {
 	for _, key := range authEnv {
 		t.Setenv(key, "")
 	}
-	for _, key := range []string{"CMA_MANAGED", "CLAUDE_CONFIG_DIR", "CMA_PROFILE", "XDG_CONFIG_HOME", "XDG_STATE_HOME"} {
+	for _, key := range []string{"CMA_MANAGED", "CMA_RUN_DIR", "CMA_ACTIVE_PROFILE", "CMA_LAUNCH_ID", "CMA_PROJECT_ROOT", "CLAUDE_CONFIG_DIR", "CMA_PROFILE", "XDG_CONFIG_HOME", "XDG_STATE_HOME"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("HOME", base)

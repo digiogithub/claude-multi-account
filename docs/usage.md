@@ -351,6 +351,16 @@ config-dir profiles, shared `projects/` lets `--resume SESSION_ID` resolve in th
 destination directory. It does not automatically recover an account with an exhausted quota or fall back to
 another identity. It detects authentication/routing conflicts without deleting policies.
 
+`cma claude [--profile ID] [--] CLAUDE_ARGS...` forwards every argument verbatim (no `--`
+needed). Configuration subcommands (`auth`, `setup-token`, `mcp`, `plugin`/`plugins`,
+`update`/`upgrade`, `install`, `doctor`, `auto-mode`, `import`, `purge`, `agents`, `attach`,
+`logs`, `respawn`, `rm`, `stop`/`kill`, and top-level `--help`/`--version`) run unsupervised
+with the selected config-dir profile's `CLAUDE_CONFIG_DIR`, so `cma claude mcp add ...`
+configures the project's profile rather than the default account. Session markers
+(`CMA_MANAGED`, `CMA_RUN_DIR`, ...) are not passed to them when a profile is applied. Token
+profiles keep the ambient configuration directory for these commands. Any other arguments
+start a managed session exactly like `cma launch --`.
+
 Actual namespaced skills (manual-only):
 
 | Skill | CLI equivalent / effect |

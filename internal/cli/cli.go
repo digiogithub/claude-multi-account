@@ -21,7 +21,7 @@ import (
 	"claude-multi-account/internal/launcher"
 )
 
-var errArguments = errors.New("invalid command or options; use cma --help.")
+var errArguments = errors.New("invalid command or options.")
 var errCancelled = errors.New("operation cancelled.")
 
 // runLauncher is a seam so tests never start the official Claude binary.
@@ -92,10 +92,20 @@ func execute(args []string, in io.Reader, out, stderr io.Writer) int {
 		fmt.Fprintln(out, usage)
 		return 0
 	}
+	if len(args) == 0 {
+		usage, _ := helpText("")
+		fmt.Fprintln(stderr, usage)
+		return 2
+	}
 	code, err := dispatch(args, in, out, stderr)
 	if err != nil {
 		if errors.Is(err, errArguments) {
+			// Only a known command path is named, never other argv values.
+			path := commandPath(args)
+			usage, _ := helpUsage(path)
 			fmt.Fprintln(stderr, "cma:", errArguments)
+			fmt.Fprintln(stderr, "usage: "+usage)
+			fmt.Fprintln(stderr, strings.TrimSpace("Run cma help "+path)+" for details.")
 			return 2
 		}
 		if errors.Is(err, errCancelled) {
@@ -202,6 +212,12 @@ func dispatch(args []string, in io.Reader, out, stderr io.Writer) (int, error) {
 			return 0, err
 		}
 		return runAndNormalize(forwarded, profile)
+	case "claude":
+		profile, forwarded, err := claudeArgs(args[1:])
+		if err != nil {
+			return 0, err
+		}
+		return runAndNormalize(forwarded, profile)
 	case "install", "uninstall":
 		flags := []string{}
 		if args[0] == "install" {
@@ -282,6 +298,23 @@ func launchArgs(args []string) (string, []string, error) {
 		return profile, args, nil
 	}
 	return profile, []string{}, nil
+}
+
+// claudeArgs forwards everything verbatim except a leading --profile and an optional "--".
+func claudeArgs(args []string) (string, []string, error) {
+	profile := ""
+	if len(args) > 0 && args[0] == "--profile" {
+		if len(args) < 2 || strings.HasPrefix(args[1], "-") {
+			return "", nil, errArguments
+		}
+		profile, args = args[1], args[2:]
+	} else if len(args) > 0 && strings.HasPrefix(args[0], "--profile=") {
+		profile, args = strings.TrimPrefix(args[0], "--profile="), args[1:]
+	}
+	if len(args) > 0 && args[0] == "--" {
+		args = args[1:]
+	}
+	return profile, append([]string{}, args...), nil
 }
 
 func profiles(args []string, in io.Reader, out, stderr io.Writer) (int, error) {

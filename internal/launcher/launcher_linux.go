@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,7 +28,13 @@ import (
 
 var authEnv = strings.Fields(`ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY ANTHROPIC_BEDROCK_BASE_URL ANTHROPIC_VERTEX_BASE_URL ANTHROPIC_FOUNDRY_BASE_URL CLAUDE_CODE_ORGANIZATION_UUID ANTHROPIC_CUSTOM_HEADERS AWS_BEARER_TOKEN_BEDROCK CLAUDE_CODE_OAUTH_TOKEN AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE GOOGLE_APPLICATION_CREDENTIALS ANTHROPIC_VERTEX_PROJECT_ID ANTHROPIC_FOUNDRY_API_KEY ANTHROPIC_FOUNDRY_RESOURCE ANTHROPIC_FOUNDRY_AUTH_TOKEN CLAUDE_CODE_USE_GATEWAY CLAUDE_CODE_USE_ANTHROPIC_AWS ANTHROPIC_AWS_BASE_URL ANTHROPIC_AWS_API_KEY CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST CLAUDE_CODE_HOST_AUTH_ENV_VAR ANTHROPIC_UNIX_SOCKET CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR CLAUDE_CODE_HOST_CREDS_FILE CLAUDE_CODE_OAUTH_REFRESH_TOKEN CLAUDE_CODE_OAUTH_SCOPES CLAUDE_CODE_SIMPLE`)
 var valueOptions = stringSet(strings.Fields(`--settings --model --permission-mode --allowedTools --allowed-tools --disallowedTools --disallowed-tools --tools --system-prompt --append-system-prompt --system-prompt-file --append-system-prompt-file --output-format --input-format --max-turns --max-budget-usd --mcp-config --agents --agent --setting-sources --plugin-dir --add-dir --permission-prompt-tool --betas --fallback-model --debug-file --mcp-debug --json-schema --effort --name --session-id`))
-var management = stringSet(strings.Fields(`auth setup-token plugin update install doctor --help -h --version -v`))
+
+// Management subcommands only administer the profile's configuration directory (MCP servers,
+// plugins, background agents); they run without session supervision.
+var management = stringSet(strings.Fields(`auth setup-token mcp plugin plugins update upgrade install doctor auto-mode import purge agents attach logs respawn rm stop kill --help -h --version -v`))
+
+// sessionEnv marks a managed session; a profile's management command must not inherit it.
+var sessionEnv = strings.Fields(`CMA_MANAGED CMA_RUN_DIR CMA_ACTIVE_PROFILE CMA_LAUNCH_ID CMA_PROJECT_ROOT`)
 
 // Function seams keep supervisor tests isolated from real credentials and processes.
 var loadProject = core.LoadProject
@@ -786,7 +793,13 @@ func runManagement(args []string, profileOverride string) (int, error) {
 		if err != nil {
 			return 1, err
 		}
-		env = processEnv(map[string]string{"CLAUDE_CONFIG_DIR": dir})
+		env = []string{}
+		for _, kv := range processEnv(map[string]string{"CLAUDE_CONFIG_DIR": dir}) {
+			key, _, _ := strings.Cut(kv, "=")
+			if !slices.Contains(sessionEnv, key) {
+				env = append(env, kv)
+			}
+		}
 	}
 	return passthrough(args, env)
 }

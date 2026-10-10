@@ -428,3 +428,30 @@ func TestBareRejectedBeforeSelector(t *testing.T) {
 		t.Fatalf("bare accepted: %v", err)
 	}
 }
+
+func TestMCPUsesProjectProfileDir(t *testing.T) {
+	cdSetup(t, "cd2")
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	var env map[string]string
+	var command []string
+	wait = func(c, e []string) (int, error) { command, env = c, envMap(e); return 0, nil }
+	args := []string{"mcp", "add", "--transport", "http", "docs", "https://example.invalid/mcp"}
+	if _, err := Run(args, ""); err != nil {
+		t.Fatal(err)
+	}
+	if env["CLAUDE_CONFIG_DIR"] != profileDir(t, "cd2") || !reflect.DeepEqual(command[1:], args) {
+		t.Fatalf("mcp: %q %q", env["CLAUDE_CONFIG_DIR"], command)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(core.StateHome(), "runs")); len(entries) != 0 {
+		t.Fatal("run directory created")
+	}
+	// An explicit profile from inside a managed session must not inherit its markers.
+	t.Setenv("CMA_RUN_DIR", t.TempDir())
+	t.Setenv("CMA_ACTIVE_PROFILE", "cd2")
+	if _, err := Run([]string{"mcp", "list"}, "cd1"); err != nil {
+		t.Fatal(err)
+	}
+	if env["CLAUDE_CONFIG_DIR"] != profileDir(t, "cd1") || env["CMA_RUN_DIR"] != "" || env["CMA_ACTIVE_PROFILE"] != "" {
+		t.Fatalf("explicit mcp: %q", env["CLAUDE_CONFIG_DIR"])
+	}
+}

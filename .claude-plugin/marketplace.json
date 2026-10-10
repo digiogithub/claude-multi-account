@@ -7,7 +7,7 @@
       "name": "accounts",
       "source": "./",
       "strict": false,
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Perfiles Linux con fuente Go completa; requiere make build explícito o CMA_BINARY estable.",
       "author": {"name": "Claude Multi Account contributors"},
       "skills": ["./plugin/skills"],
