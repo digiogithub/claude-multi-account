@@ -1,0 +1,98 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (empty: latest tag)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            tag="$GITHUB_REF_NAME"
+          elif [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+          fi
+          test -n "$tag" || { echo 'no tag found' >&2; exit 1; }
+          git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { echo "unknown tag: $tag" >&2; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test
+        if: matrix.goarch == 'amd64'
+        run: |
+          go vet ./...
+          go test ./...
+          sh -n bin/cma && sh -n bin/claude-cma && sh -n plugin/bin/cma
+      - name: Build
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          mkdir -p dist
+          go build -trimpath -o dist/cma ./cmd/cma
+          name="cma_${TAG}_linux_${GOARCH}"
+          mkdir -p "pkg/$name"
+          cp dist/cma LICENSE README.md "pkg/$name/"
+          tar -C pkg -czf "$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cma-linux-${{ matrix.goarch }}
+          path: cma_*.tar.gz
+
+  release:
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          cd out
+          sha256sum cma_*.tar.gz > SHA256SUMS
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" cma_*.tar.gz SHA256SUMS --clobber
+          else
+            gh release create "$TAG" cma_*.tar.gz SHA256SUMS --verify-tag --generate-notes --title "$TAG"
+          fi
