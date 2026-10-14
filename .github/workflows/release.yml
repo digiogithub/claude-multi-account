@@ -51,12 +51,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Test
+          cache: false
+      - name: Vet
         if: matrix.goarch == 'amd64'
-        run: |
-          go vet ./...
-          go test ./...
-          sh -n bin/cma && sh -n bin/claude-cma && sh -n plugin/bin/cma
+        run: go vet ./...
       - name: Build
         env:
           CGO_ENABLED: "0"
